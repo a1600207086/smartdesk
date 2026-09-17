@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: smartdesk
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+info:
+  app:
+    name: SmartDesk
+    description: Intelligent after-sales and knowledge-base agent platform
