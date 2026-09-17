@@ -32,11 +32,23 @@
         WHERE id = #{id}
     </select>
 
+    <select id="findByCode" resultMap="tenantResultMap">
+        SELECT
+        <include refid="tenantColumns"/>
+        FROM tenant
+        WHERE code = #{code}
+    </select>
+
     <select id="findAll" resultMap="tenantResultMap">
         SELECT
         <include refid="tenantColumns"/>
         FROM tenant
         ORDER BY created_at DESC, id DESC
+    </select>
+
+    <select id="countAll" resultType="int">
+        SELECT COUNT(*)
+        FROM tenant
     </select>
 
     <select id="countByCode" resultType="int">

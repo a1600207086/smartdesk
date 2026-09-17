@@ -2,6 +2,8 @@ package com.smartdesk.common.api;
 
 import com.smartdesk.common.error.ConflictException;
 import com.smartdesk.common.error.NotFoundException;
+import com.smartdesk.common.error.TooManyRequestsException;
+import com.smartdesk.common.error.UnauthorizedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
@@ -32,6 +34,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleNotFound(NotFoundException exception) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.failure("NOT_FOUND", exception.getMessage()));
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnauthorized(UnauthorizedException exception) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.failure("UNAUTHORIZED", exception.getMessage()));
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTooManyRequests(TooManyRequestsException exception) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body(ApiResponse.failure("TOO_MANY_REQUESTS", exception.getMessage()));
     }
 
     @ExceptionHandler({ConflictException.class, DuplicateKeyException.class})

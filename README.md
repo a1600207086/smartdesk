@@ -4,13 +4,12 @@ SmartDesk is an intelligent after-sales and knowledge-base agent platform built 
 
 ## Current milestone
 
-- Java 21
-- Spring Boot 3.3.6
-- REST API foundation
-- MySQL-ready datasource configuration
-- Flyway database migrations
-- MyBatis persistence layer
-- Tenant create/read API
+- Java 21 and Spring Boot 3.3.6
+- MySQL, Flyway, and MyBatis
+- Tenant API
+- Spring Security and BCrypt
+- JWT registration, login, logout, and profile API
+- Redis failed-login rate limiting and token blacklist
 - H2 integration tests
 
 ## Run tests
@@ -19,39 +18,79 @@ SmartDesk is an intelligent after-sales and knowledge-base agent platform built 
 .\mvnw.cmd test
 ```
 
-## Configure MySQL
+## Start Redis
 
-Set these environment variables in the terminal that starts the application:
+The Windows Redis service is installed as `Redis`:
+
+```powershell
+Start-Service Redis
+Get-Service Redis
+```
+
+## Configure services
 
 ```powershell
 $env:SMARTDESK_DB_URL="jdbc:mysql://localhost:3306/smartdesk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
 $env:SMARTDESK_DB_USERNAME="smartdesk_app"
-$env:SMARTDESK_DB_PASSWORD="your-local-password"
+$env:SMARTDESK_DB_PASSWORD="your-local-database-password"
+$env:SMARTDESK_JWT_SECRET="replace-with-a-random-secret-at-least-32-bytes-long"
+
 .\mvnw.cmd spring-boot:run
 ```
 
-Flyway creates the database tables on startup.
+## Authentication API
 
-## Tenant API
-
-Create:
+Bootstrap the first tenant. This endpoint is allowed only while the tenant table is empty:
 
 ```powershell
-$body = @{
+$tenant = @{
   code = "acme"
   name = "Acme After Sale"
 } | ConvertTo-Json
 
-Invoke-RestMethod `
-  -Method Post `
-  -Uri http://localhost:8080/api/v1/tenants `
-  -ContentType application/json `
-  -Body $body
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/bootstrap/tenant `
+  -ContentType application/json -Body $tenant
 ```
 
-Query:
+Register the first user. The first user in a tenant is assigned the `ADMIN` role:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/api/v1/tenants
-Invoke-RestMethod http://localhost:8080/api/v1/tenants/1
+$body = @{
+  tenantCode = "acme"
+  username = "alice"
+  displayName = "Alice"
+  password = "Password123!"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/register `
+  -ContentType application/json -Body $body
+```
+
+Login:
+
+```powershell
+$login = @{
+  tenantCode = "acme"
+  username = "alice"
+  password = "Password123!"
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/login `
+  -ContentType application/json -Body $login
+
+$token = $response.data.accessToken
+```
+
+Read the current profile:
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:8080/api/v1/auth/me `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+Logout:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/logout `
+  -Headers @{ Authorization = "Bearer $token" }
 ```

@@ -1,0 +1,5 @@
+ALTER TABLE app_user
+    ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'USER';
+
+ALTER TABLE app_user
+    ADD COLUMN last_login_at DATETIME(6) NULL;

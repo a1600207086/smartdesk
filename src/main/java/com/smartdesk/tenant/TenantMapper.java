@@ -12,7 +12,11 @@ public interface TenantMapper {
 
     TenantEntity findById(@Param("id") Long id);
 
+    TenantEntity findByCode(@Param("code") String code);
+
     List<TenantEntity> findAll();
+
+    int countAll();
 
     int countByCode(@Param("code") String code);
 }

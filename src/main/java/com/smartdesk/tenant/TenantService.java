@@ -19,6 +19,14 @@ public class TenantService {
     }
 
     @Transactional
+    public TenantResponse createBootstrapTenant(CreateTenantRequest request) {
+        if (tenantMapper.countAll() > 0) {
+            throw new ConflictException("系统已存在租户，请由管理员创建新租户");
+        }
+        return create(request);
+    }
+
+    @Transactional
     public TenantResponse create(CreateTenantRequest request) {
         String code = request.code().trim().toLowerCase(Locale.ROOT);
         if (tenantMapper.countByCode(code) > 0) {

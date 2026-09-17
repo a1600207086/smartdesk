@@ -1,6 +1,9 @@
 spring:
   application:
     name: smartdesk
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: "${SMARTDESK_DB_URL:jdbc:mysql://localhost:3306/smartdesk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}"
     username: "${SMARTDESK_DB_USERNAME:smartdesk_app}"
@@ -15,11 +18,27 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  data:
+    redis:
+      host: "${SMARTDESK_REDIS_HOST:localhost}"
+      port: "${SMARTDESK_REDIS_PORT:6379}"
+      password: "${SMARTDESK_REDIS_PASSWORD:}"
+      timeout: 500ms
 
 mybatis:
   mapper-locations: classpath*:mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
+
+smartdesk:
+  security:
+    jwt:
+      issuer: smartdesk
+      secret: "${SMARTDESK_JWT_SECRET:smartdesk-local-development-secret-key-2026}"
+      expiration: 2h
+  login-rate-limit:
+    max-attempts: 5
+    window: 10m
 
 server:
   port: 8080
