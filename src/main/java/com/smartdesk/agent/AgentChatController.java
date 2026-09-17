@@ -33,7 +33,7 @@ public class AgentChatController {
         this.agentTaskExecutor = agentTaskExecutor;
     }
 
-    @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE + ";charset=UTF-8")
     public SseEmitter chat(
             Authentication authentication,
             @PathVariable Long conversationId,
