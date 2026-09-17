@@ -1,7 +1,7 @@
 package com.smartdesk.auth;
 
 import com.smartdesk.common.api.ApiResponse;
-import com.smartdesk.common.error.UnauthorizedException;
+import com.smartdesk.common.security.AuthenticatedUserSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -47,22 +47,15 @@ public class AuthController {
 
     @GetMapping("/me")
     public ApiResponse<UserProfile> me(Authentication authentication) {
-        return ApiResponse.success(authService.getProfile(currentUser(authentication)));
+        return ApiResponse.success(authService.getProfile(AuthenticatedUserSupport.require(authentication)));
     }
 
     @PostMapping("/logout")
     public ApiResponse<Void> logout(Authentication authentication) {
-        AuthenticatedUser user = currentUser(authentication);
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
         Duration remainingTtl = Duration.between(Instant.now(), user.expiresAt());
         tokenBlacklistService.blacklist(user.jwtId(), remainingTtl);
         return ApiResponse.success(null);
-    }
-
-    private static AuthenticatedUser currentUser(Authentication authentication) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser user)) {
-            throw new UnauthorizedException("请先登录");
-        }
-        return user;
     }
 
     private static String resolveClientIp(HttpServletRequest request) {

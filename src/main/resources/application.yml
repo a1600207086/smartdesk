@@ -39,6 +39,13 @@ smartdesk:
   login-rate-limit:
     max-attempts: 5
     window: 10m
+  conversation:
+    recent-memory-size: 20
+    memory-ttl: 1h
+    default-page-size: 20
+    max-page-size: 100
+    context-window-size: 20
+    max-context-chars: 12000
 
 server:
   port: 8080

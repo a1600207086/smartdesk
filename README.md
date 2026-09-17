@@ -94,3 +94,42 @@ Logout:
 Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/logout `
   -Headers @{ Authorization = "Bearer $token" }
 ```
+
+## Conversation API
+
+Create a conversation:
+
+```powershell
+$conversation = @{
+  title = "Order consultation"
+} | ConvertTo-Json
+
+$created = Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/conversations `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType application/json `
+  -Body $conversation
+
+$conversationId = $created.data.id
+```
+
+Append a user message:
+
+```powershell
+$message = @{
+  content = "Where is my order?"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType application/json `
+  -Body $message
+```
+
+Read recent messages:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages?limit=20" `
+  -Headers @{ Authorization = "Bearer $token" }

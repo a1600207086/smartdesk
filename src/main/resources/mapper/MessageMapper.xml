@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smartdesk.conversation.MessageMapper">
+
+    <resultMap id="messageResultMap" type="com.smartdesk.conversation.MessageEntity">
+        <id property="id" column="id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="role" column="message_role"/>
+        <result property="content" column="content"/>
+        <result property="tokenCount" column="token_count"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="messageColumns">
+        id, conversation_id, message_role, content, token_count, created_at
+    </sql>
+
+    <insert id="insert"
+            parameterType="com.smartdesk.conversation.MessageEntity"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO message (
+            conversation_id,
+            message_role,
+            content,
+            token_count,
+            created_at
+        )
+        VALUES (
+            #{conversationId},
+            #{role},
+            #{content},
+            #{tokenCount},
+            #{createdAt}
+        )
+    </insert>
+
+    <select id="findPage" resultMap="messageResultMap">
+        SELECT
+        <include refid="messageColumns"/>
+        FROM message
+        WHERE conversation_id = #{conversationId}
+        <if test="beforeId != null">
+            AND id &lt; #{beforeId}
+        </if>
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>
