@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smartdesk.agent.ToolCallLogMapper">
+
+    <insert id="insert"
+            parameterType="com.smartdesk.agent.ToolCallLogEntity"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO tool_call_log (
+            agent_run_id, tool_name, arguments_json, result_json,
+            success, error_message, duration_ms, started_at, finished_at
+        )
+        VALUES (
+            #{agentRunId}, #{toolName}, #{argumentsJson}, #{resultJson},
+            #{success}, #{errorMessage}, #{durationMs}, #{startedAt}, #{finishedAt}
+        )
+    </insert>
+
+</mapper>

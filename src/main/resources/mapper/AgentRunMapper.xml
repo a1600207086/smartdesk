@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smartdesk.agent.AgentRunMapper">
+
+    <insert id="insert"
+            parameterType="com.smartdesk.agent.AgentRunEntity"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO agent_run (
+            conversation_id, tenant_id, user_id, input_message_id,
+            route, status, error_message, started_at, finished_at
+        )
+        VALUES (
+            #{conversationId}, #{tenantId}, #{userId}, #{inputMessageId},
+            #{route}, #{status}, #{errorMessage}, #{startedAt}, #{finishedAt}
+        )
+    </insert>
+
+    <update id="updateRoute">
+        UPDATE agent_run SET route = #{route} WHERE id = #{id}
+    </update>
+
+    <update id="complete">
+        UPDATE agent_run
+        SET status = 'COMPLETED', finished_at = #{finishedAt}, error_message = NULL
+        WHERE id = #{id}
+    </update>
+
+    <update id="fail">
+        UPDATE agent_run
+        SET status = 'FAILED', error_message = #{errorMessage}, finished_at = #{finishedAt}
+        WHERE id = #{id}
+    </update>
+
+</mapper>

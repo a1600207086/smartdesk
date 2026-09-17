@@ -133,3 +133,24 @@ Read recent messages:
 Invoke-RestMethod `
   -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages?limit=20" `
   -Headers @{ Authorization = "Bearer $token" }
+
+## Agent SSE Chat
+
+Send a message to the Agent:
+
+```powershell
+$chat = @{
+  message = "订单号 A10001 什么时候到？"
+} | ConvertTo-Json
+
+curl.exe -N -X POST `
+  "http://localhost:8080/api/v1/conversations/$conversationId/chat" `
+  -H "Authorization: Bearer $token" `
+  -H "Content-Type: application/json" `
+  -H "Accept: text/event-stream" `
+  -d $chat
+```
+
+The stream emits `start`, `route`, optional `tool`, `message`, and `done` events.
+
+The current model is deterministic and does not require an API key. A real model provider can be added by implementing `AgentChatModel`.
