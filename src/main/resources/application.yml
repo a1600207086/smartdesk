@@ -1,6 +1,25 @@
 spring:
   application:
     name: smartdesk
+  datasource:
+    url: "${SMARTDESK_DB_URL:jdbc:mysql://localhost:3306/smartdesk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}"
+    username: "${SMARTDESK_DB_USERNAME:smartdesk_app}"
+    password: "${SMARTDESK_DB_PASSWORD:}"
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: SmartDeskHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+      validation-timeout: 1000
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+mybatis:
+  mapper-locations: classpath*:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
 
 server:
   port: 8080
