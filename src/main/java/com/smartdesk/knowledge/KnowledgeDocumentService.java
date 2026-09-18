@@ -94,6 +94,7 @@ public class KnowledgeDocumentService {
                         document.getSourceType(),
                         document.getSourceUri(),
                         document.getStatus(),
+                        document.getEmbeddingModel(),
                         chunkMapper.countByDocumentId(document.getId()),
                         document.getCreatedAt()
                 ))
@@ -129,6 +130,7 @@ public class KnowledgeDocumentService {
         document.setSourceUri(sourceUri);
         document.setStatus(DocumentStatus.PROCESSING);
         document.setChecksum(checksum);
+        document.setEmbeddingModel(embeddingModel.modelId());
         document.setCreatedBy(user.userId());
         document.setCreatedAt(now);
         document.setUpdatedAt(now);
@@ -139,6 +141,11 @@ public class KnowledgeDocumentService {
             throw new IllegalArgumentException("文档内容无法生成有效切片");
         }
 
+        List<float[]> vectors = embeddingModel.embedAll(chunks);
+        if (vectors.size() != chunks.size()) {
+            throw new IllegalStateException("Embedding count does not match chunk count");
+        }
+
         List<KnowledgeChunkEntity> entities = new ArrayList<>(chunks.size());
         for (int index = 0; index < chunks.size(); index++) {
             String chunk = chunks.get(index);
@@ -147,7 +154,7 @@ public class KnowledgeDocumentService {
             entity.setTenantId(user.tenantId());
             entity.setChunkIndex(index);
             entity.setContent(chunk);
-            entity.setEmbeddingJson(vectorCodec.encode(embeddingModel.embed(chunk)));
+            entity.setEmbeddingJson(vectorCodec.encode(vectors.get(index)));
             entity.setTokenCount(Math.max(1, chunk.length() / 4));
             entity.setCreatedAt(now);
             entities.add(entity);
@@ -162,6 +169,7 @@ public class KnowledgeDocumentService {
                 document.getSourceType(),
                 document.getSourceUri(),
                 DocumentStatus.READY,
+                embeddingModel.modelId(),
                 entities.size(),
                 document.getCreatedAt()
         );

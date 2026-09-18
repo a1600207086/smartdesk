@@ -212,3 +212,19 @@ Invoke-RestMethod -Method Post `
 ```
 
 Policy questions are routed to the Agent tool `searchKnowledge` and retrieved chunks are included in the model context.
+
+## Real Embedding Model
+
+The knowledge base defaults to `HashEmbeddingModel`. To use a real OpenAI-compatible embedding endpoint:
+
+```powershell
+$env:SMARTDESK_EMBEDDING_ENABLED="true"
+$env:SMARTDESK_EMBEDDING_BASE_URL="https://api.openai.com/v1"
+$env:SMARTDESK_EMBEDDING_API_KEY="your-embedding-api-key"
+$env:SMARTDESK_EMBEDDING_MODEL="text-embedding-3-small"
+$env:SMARTDESK_EMBEDDING_DIMENSIONS="256"
+
+.\mvnw.cmd spring-boot:run
+```
+
+Each document records its embedding model id. Existing Hash documents are ignored when a real embedding model is active; re-upload or reindex them after switching models.

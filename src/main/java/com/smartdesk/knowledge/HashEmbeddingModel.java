@@ -1,5 +1,6 @@
 package com.smartdesk.knowledge;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
+@ConditionalOnProperty(prefix = "smartdesk.embedding", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class HashEmbeddingModel implements EmbeddingModel {
 
     private static final Pattern WORD_PATTERN = Pattern.compile("[a-z0-9]+");
@@ -18,6 +20,11 @@ public class HashEmbeddingModel implements EmbeddingModel {
 
     public HashEmbeddingModel(KnowledgeProperties properties) {
         this.properties = properties;
+    }
+
+    @Override
+    public String modelId() {
+        return "hash-v1-" + properties.embeddingDimensions();
     }
 
     @Override

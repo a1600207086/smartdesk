@@ -64,7 +64,9 @@ public class KnowledgeRetrievalService {
         List<Candidate> candidates = new ArrayList<>();
         for (KnowledgeChunkEntity chunk : chunks) {
             KnowledgeDocumentEntity document = documents.get(chunk.getDocumentId());
-            if (document == null || document.getStatus() != DocumentStatus.READY) {
+            if (document == null
+                    || document.getStatus() != DocumentStatus.READY
+                    || !embeddingModel.modelId().equals(document.getEmbeddingModel())) {
                 continue;
             }
             double vectorScore = cosineSimilarity(queryVector, vectorCodec.decode(chunk.getEmbeddingJson()));
