@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@ConditionalOnProperty(prefix = "smartdesk.llm", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class MockAgentChatModel implements AgentChatModel {
 
     @Override
