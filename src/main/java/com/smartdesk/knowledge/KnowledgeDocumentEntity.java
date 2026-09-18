@@ -12,6 +12,7 @@ public class KnowledgeDocumentEntity {
     private String sourceUri;
     private DocumentStatus status;
     private String checksum;
+    private String errorMessage;
     private String embeddingModel;
     private Long createdBy;
     private LocalDateTime createdAt;
@@ -32,8 +33,10 @@ public class KnowledgeDocumentEntity {
     public DocumentStatus getStatus() { return status; }
     public void setStatus(DocumentStatus status) { this.status = status; }
     public String getChecksum() { return checksum; }
+    public String getErrorMessage() { return errorMessage; }
     public String getEmbeddingModel() { return embeddingModel; }
     public void setChecksum(String checksum) { this.checksum = checksum; }
+    public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
     public void setEmbeddingModel(String embeddingModel) { this.embeddingModel = embeddingModel; }
     public Long getCreatedBy() { return createdBy; }
     public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }

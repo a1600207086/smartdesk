@@ -256,3 +256,36 @@ Invoke-RestMethod -Method Delete `
   -Uri http://localhost:8080/api/v1/knowledge/documents/1 `
   -Headers @{ Authorization = "Bearer $token" }
 ```
+
+## Async Knowledge Processing
+
+Upload asynchronously:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/knowledge/documents/text/async `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([Text.Encoding]::UTF8.GetBytes($documentBody))
+```
+
+The response returns `202 Accepted` and typically has:
+
+```text
+status: PROCESSING
+```
+
+Poll:
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/knowledge/documents/$documentId" `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+Retry a failed document:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://localhost:8080/api/v1/knowledge/documents/$documentId/retry" `
+  -Headers @{ Authorization = "Bearer $token" }
+```

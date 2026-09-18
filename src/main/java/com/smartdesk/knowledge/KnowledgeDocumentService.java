@@ -85,6 +85,65 @@ public class KnowledgeDocumentService {
         }
     }
 
+    @Transactional
+    public KnowledgeDocumentResponse createPendingTextDocument(
+            AuthenticatedUser user,
+            CreateTextDocumentRequest request
+    ) {
+        return createPendingDocument(
+                user,
+                request.title(),
+                DocumentSourceType.TEXT,
+                request.sourceUri(),
+                request.content()
+        );
+    }
+
+    @Transactional
+    public KnowledgeDocumentResponse createPendingFileDocument(
+            AuthenticatedUser user,
+            String title,
+            String sourceUri,
+            MultipartFile file
+    ) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("上传文件不能为空");
+        }
+
+        String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String lowerName = filename.toLowerCase();
+        boolean textFile = lowerName.endsWith(".txt")
+                || lowerName.endsWith(".md")
+                || lowerName.endsWith(".markdown");
+        boolean textContentType = file.getContentType() != null
+                && file.getContentType().startsWith("text/");
+        if (!textFile && !textContentType) {
+            throw new IllegalArgumentException("当前版本仅支持 txt 和 markdown 文件");
+        }
+
+        try {
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+            return createPendingDocument(user, title, DocumentSourceType.FILE, sourceUri, content);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("无法读取上传文件", exception);
+        }
+    }
+
+    @Transactional
+    public KnowledgeDocumentResponse prepareRetry(Long documentId, AuthenticatedUser user) {
+        KnowledgeDocumentEntity document = requireOwnedDocument(documentId, user);
+        if (document.getContent() == null || document.getContent().isBlank()) {
+            throw new ConflictException("旧文档没有保存原始内容，请删除后重新上传");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        documentMapper.resetForProcessing(documentId, embeddingModel.modelId(), now);
+        document.setStatus(DocumentStatus.PROCESSING);
+        document.setEmbeddingModel(embeddingModel.modelId());
+        document.setErrorMessage(null);
+        document.setUpdatedAt(now);
+        return toResponse(document, chunkMapper.countByDocumentId(documentId));
+    }
     @Transactional(readOnly = true)
     public List<KnowledgeDocumentResponse> findAll(AuthenticatedUser user) {
         return documentMapper.findAllByTenantId(user.tenantId())
@@ -220,6 +279,44 @@ public class KnowledgeDocumentService {
         return entities;
     }
 
+    private KnowledgeDocumentResponse createPendingDocument(
+            AuthenticatedUser user,
+            String title,
+            DocumentSourceType sourceType,
+            String sourceUri,
+            String content
+    ) {
+        String normalizedTitle = title == null ? "" : title.trim();
+        String normalizedContent = normalizeContent(content);
+        if (normalizedTitle.isEmpty()) {
+            throw new IllegalArgumentException("文档标题不能为空");
+        }
+        if (normalizedContent.isEmpty()) {
+            throw new IllegalArgumentException("文档内容不能为空");
+        }
+
+        String checksum = sha256(normalizedContent);
+        if (documentMapper.countByTenantIdAndChecksum(user.tenantId(), checksum) > 0) {
+            throw new ConflictException("相同内容的文档已经存在");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        KnowledgeDocumentEntity document = new KnowledgeDocumentEntity();
+        document.setTenantId(user.tenantId());
+        document.setTitle(normalizedTitle);
+        document.setContent(normalizedContent);
+        document.setSourceType(sourceType);
+        document.setSourceUri(sourceUri);
+        document.setStatus(DocumentStatus.PROCESSING);
+        document.setChecksum(checksum);
+        document.setEmbeddingModel(embeddingModel.modelId());
+        document.setCreatedBy(user.userId());
+        document.setCreatedAt(now);
+        document.setUpdatedAt(now);
+        documentMapper.insert(document);
+        return toResponse(document, 0);
+    }
+
     private KnowledgeDocumentEntity requireOwnedDocument(
             Long documentId,
             AuthenticatedUser user
@@ -246,6 +343,7 @@ public class KnowledgeDocumentService {
                 document.getSourceUri(),
                 document.getStatus(),
                 document.getEmbeddingModel(),
+                document.getErrorMessage(),
                 chunkCount,
                 document.getCreatedAt()
         );

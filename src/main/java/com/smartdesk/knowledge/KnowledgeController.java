@@ -27,13 +27,16 @@ public class KnowledgeController {
 
     private final KnowledgeDocumentService documentService;
     private final KnowledgeRetrievalService retrievalService;
+    private final KnowledgeAsyncDocumentService asyncDocumentService;
 
     public KnowledgeController(
             KnowledgeDocumentService documentService,
-            KnowledgeRetrievalService retrievalService
+            KnowledgeRetrievalService retrievalService,
+            KnowledgeAsyncDocumentService asyncDocumentService
     ) {
         this.documentService = documentService;
         this.retrievalService = retrievalService;
+        this.asyncDocumentService = asyncDocumentService;
     }
 
     @PostMapping("/documents/text")
@@ -45,6 +48,41 @@ public class KnowledgeController {
     ) {
         AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
         return ApiResponse.success(documentService.createTextDocument(user, request));
+    }
+
+    @PostMapping("/documents/text/async")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<KnowledgeDocumentResponse> createTextDocumentAsync(
+            Authentication authentication,
+            @Valid @RequestBody CreateTextDocumentRequest request
+    ) {
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
+        return ApiResponse.success(asyncDocumentService.createTextDocument(user, request));
+    }
+
+    @PostMapping("/documents/upload/async")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<KnowledgeDocumentResponse> uploadDocumentAsync(
+            Authentication authentication,
+            @RequestParam String title,
+            @RequestParam(required = false) String sourceUri,
+            @RequestPart("file") MultipartFile file
+    ) {
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
+        return ApiResponse.success(asyncDocumentService.createFileDocument(user, title, sourceUri, file));
+    }
+
+    @PostMapping("/documents/{documentId}/retry")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<KnowledgeDocumentResponse> retryDocument(
+            Authentication authentication,
+            @PathVariable Long documentId
+    ) {
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
+        return ApiResponse.success(asyncDocumentService.retry(documentId, user));
     }
 
     @PostMapping("/documents/upload")

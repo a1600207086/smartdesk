@@ -9,6 +9,7 @@ public record KnowledgeDocumentResponse(
         String sourceUri,
         DocumentStatus status,
         String embeddingModel,
+        String errorMessage,
         int chunkCount,
         LocalDateTime createdAt
 ) {

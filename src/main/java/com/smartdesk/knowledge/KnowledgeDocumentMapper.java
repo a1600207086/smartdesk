@@ -16,6 +16,18 @@ public interface KnowledgeDocumentMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") DocumentStatus status);
 
+    int resetForProcessing(
+            @Param("id") Long id,
+            @Param("embeddingModel") String embeddingModel,
+            @Param("updatedAt") java.time.LocalDateTime updatedAt
+    );
+
+    int markFailed(
+            @Param("id") Long id,
+            @Param("errorMessage") String errorMessage,
+            @Param("updatedAt") java.time.LocalDateTime updatedAt
+    );
+
     int updateForReindex(
             @Param("id") Long id,
             @Param("status") DocumentStatus status,
