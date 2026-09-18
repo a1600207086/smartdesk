@@ -177,3 +177,38 @@ POST {baseUrl}/chat/completions
 ```
 
 and parses OpenAI-compatible streaming events. Set `SMARTDESK_LLM_ENABLED=false` or omit it to keep the Mock model.
+
+## Knowledge Base
+
+Upload text as an authenticated ADMIN:
+
+```powershell
+$document = @{
+  title = "退款政策"
+  content = "商品签收后七天内可以申请无理由退款，审核通过后三个工作日到账。"
+  sourceUri = "internal://policy/refund"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/knowledge/documents/text `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([Text.Encoding]::UTF8.GetBytes($document))
+```
+
+Search:
+
+```powershell
+$search = @{
+  query = "退货后多久退款？"
+  topK = 3
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/knowledge/search `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([Text.Encoding]::UTF8.GetBytes($search))
+```
+
+Policy questions are routed to the Agent tool `searchKnowledge` and retrieved chunks are included in the model context.

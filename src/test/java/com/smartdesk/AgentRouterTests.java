@@ -17,6 +17,23 @@ class AgentRouterTests {
     private final AgentRouter router = new AgentRouter();
 
     @Test
+    void shouldRoutePolicyQuestionToKnowledgeSearch() {
+        MessageResponse message = new MessageResponse(
+                2L,
+                1L,
+                MessageRole.USER,
+                "退款政策是什么？",
+                null,
+                LocalDateTime.now()
+        );
+
+        AgentDecision decision = router.route(List.of(message));
+
+        assertThat(decision.route()).isEqualTo(AgentRoute.TOOL_CALL);
+        assertThat(decision.toolName()).isEqualTo("searchKnowledge");
+        assertThat(decision.arguments()).containsEntry("query", "退款政策是什么？");
+    }
+    @Test
     void shouldDetectOrderNumberEvenWhenChineseTextIsCorrupted() {
         MessageResponse message = new MessageResponse(
                 1L,

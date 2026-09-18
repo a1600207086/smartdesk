@@ -1,0 +1,178 @@
+package com.smartdesk.knowledge;
+
+import com.smartdesk.auth.AuthenticatedUser;
+import com.smartdesk.common.error.ConflictException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.List;
+
+@Service
+public class KnowledgeDocumentService {
+
+    private final KnowledgeDocumentMapper documentMapper;
+    private final KnowledgeChunkMapper chunkMapper;
+    private final TextChunker textChunker;
+    private final EmbeddingModel embeddingModel;
+    private final EmbeddingVectorCodec vectorCodec;
+    private final KnowledgeSearchCache searchCache;
+
+    public KnowledgeDocumentService(
+            KnowledgeDocumentMapper documentMapper,
+            KnowledgeChunkMapper chunkMapper,
+            TextChunker textChunker,
+            EmbeddingModel embeddingModel,
+            EmbeddingVectorCodec vectorCodec,
+            KnowledgeSearchCache searchCache
+    ) {
+        this.documentMapper = documentMapper;
+        this.chunkMapper = chunkMapper;
+        this.textChunker = textChunker;
+        this.embeddingModel = embeddingModel;
+        this.vectorCodec = vectorCodec;
+        this.searchCache = searchCache;
+    }
+
+    @Transactional
+    public KnowledgeDocumentResponse createTextDocument(
+            AuthenticatedUser user,
+            CreateTextDocumentRequest request
+    ) {
+        return createDocument(
+                user,
+                request.title(),
+                DocumentSourceType.TEXT,
+                request.sourceUri(),
+                request.content()
+        );
+    }
+
+    @Transactional
+    public KnowledgeDocumentResponse createFileDocument(
+            AuthenticatedUser user,
+            String title,
+            String sourceUri,
+            MultipartFile file
+    ) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("上传文件不能为空");
+        }
+
+        String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
+        String lowerName = filename.toLowerCase();
+        boolean textFile = lowerName.endsWith(".txt")
+                || lowerName.endsWith(".md")
+                || lowerName.endsWith(".markdown");
+        boolean textContentType = file.getContentType() != null
+                && file.getContentType().startsWith("text/");
+        if (!textFile && !textContentType) {
+            throw new IllegalArgumentException("当前版本仅支持 txt 和 markdown 文件");
+        }
+
+        try {
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+            return createDocument(user, title, DocumentSourceType.FILE, sourceUri, content);
+        } catch (IOException exception) {
+            throw new IllegalArgumentException("无法读取上传文件", exception);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<KnowledgeDocumentResponse> findAll(AuthenticatedUser user) {
+        return documentMapper.findAllByTenantId(user.tenantId())
+                .stream()
+                .map(document -> new KnowledgeDocumentResponse(
+                        document.getId(),
+                        document.getTitle(),
+                        document.getSourceType(),
+                        document.getSourceUri(),
+                        document.getStatus(),
+                        chunkMapper.countByDocumentId(document.getId()),
+                        document.getCreatedAt()
+                ))
+                .toList();
+    }
+
+    private KnowledgeDocumentResponse createDocument(
+            AuthenticatedUser user,
+            String title,
+            DocumentSourceType sourceType,
+            String sourceUri,
+            String content
+    ) {
+        String normalizedTitle = title == null ? "" : title.trim();
+        String normalizedContent = content == null ? "" : content.trim();
+        if (normalizedTitle.isEmpty()) {
+            throw new IllegalArgumentException("文档标题不能为空");
+        }
+        if (normalizedContent.isEmpty()) {
+            throw new IllegalArgumentException("文档内容不能为空");
+        }
+
+        String checksum = sha256(normalizedContent);
+        if (documentMapper.countByTenantIdAndChecksum(user.tenantId(), checksum) > 0) {
+            throw new ConflictException("相同内容的文档已经存在");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        KnowledgeDocumentEntity document = new KnowledgeDocumentEntity();
+        document.setTenantId(user.tenantId());
+        document.setTitle(normalizedTitle);
+        document.setSourceType(sourceType);
+        document.setSourceUri(sourceUri);
+        document.setStatus(DocumentStatus.PROCESSING);
+        document.setChecksum(checksum);
+        document.setCreatedBy(user.userId());
+        document.setCreatedAt(now);
+        document.setUpdatedAt(now);
+        documentMapper.insert(document);
+
+        List<String> chunks = textChunker.split(normalizedContent);
+        if (chunks.isEmpty()) {
+            throw new IllegalArgumentException("文档内容无法生成有效切片");
+        }
+
+        List<KnowledgeChunkEntity> entities = new ArrayList<>(chunks.size());
+        for (int index = 0; index < chunks.size(); index++) {
+            String chunk = chunks.get(index);
+            KnowledgeChunkEntity entity = new KnowledgeChunkEntity();
+            entity.setDocumentId(document.getId());
+            entity.setTenantId(user.tenantId());
+            entity.setChunkIndex(index);
+            entity.setContent(chunk);
+            entity.setEmbeddingJson(vectorCodec.encode(embeddingModel.embed(chunk)));
+            entity.setTokenCount(Math.max(1, chunk.length() / 4));
+            entity.setCreatedAt(now);
+            entities.add(entity);
+        }
+        chunkMapper.insertBatch(entities);
+        documentMapper.updateStatus(document.getId(), DocumentStatus.READY);
+        searchCache.invalidate(user.tenantId());
+
+        return new KnowledgeDocumentResponse(
+                document.getId(),
+                document.getTitle(),
+                document.getSourceType(),
+                document.getSourceUri(),
+                DocumentStatus.READY,
+                entities.size(),
+                document.getCreatedAt()
+        );
+    }
+
+    private String sha256(String content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
+        } catch (Exception exception) {
+            throw new IllegalStateException("Unable to calculate document checksum", exception);
+        }
+    }
+}

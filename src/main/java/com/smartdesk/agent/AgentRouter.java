@@ -30,6 +30,17 @@ public class AgentRouter {
             );
         }
 
+        String lower = lastUserMessage.toLowerCase();
+        if (lower.contains("知识") || lower.contains("政策") || lower.contains("规则")
+                || lower.contains("流程") || lower.contains("怎么") || lower.contains("如何")
+                || lower.contains("退款") || lower.contains("退货") || lower.contains("售后")
+                || lower.contains("说明") || lower.contains("policy") || lower.contains("knowledge")) {
+            return AgentDecision.toolCall(
+                    "searchKnowledge",
+                    Map.of("query", lastUserMessage)
+            );
+        }
+
         return AgentDecision.direct();
     }
 }

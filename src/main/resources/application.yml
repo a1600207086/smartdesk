@@ -54,6 +54,14 @@ smartdesk:
     timeout: 60s
     temperature: 0.3
     max-tokens: 1024
+  knowledge:
+    chunk-size: 800
+    chunk-overlap: 120
+    embedding-dimensions: 256
+    default-top-k: 4
+    max-top-k: 20
+    min-score: 0.05
+    cache-ttl: 10m
 
 server:
   port: 8080
