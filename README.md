@@ -154,3 +154,26 @@ curl.exe -N -X POST `
 The stream emits `start`, `route`, optional `tool`, `message`, and `done` events.
 
 The current model is deterministic and does not require an API key. A real model provider can be added by implementing `AgentChatModel`.
+
+## Real LLM Provider
+
+The project defaults to `MockAgentChatModel`.
+
+To enable an OpenAI-compatible provider:
+
+```powershell
+$env:SMARTDESK_LLM_ENABLED="true"
+$env:SMARTDESK_LLM_BASE_URL="https://api.deepseek.com/v1"
+$env:SMARTDESK_LLM_MODEL="deepseek-chat"
+$env:SMARTDESK_LLM_API_KEY="your-api-key"
+
+.\mvnw.cmd spring-boot:run
+```
+
+The provider calls:
+
+```text
+POST {baseUrl}/chat/completions
+```
+
+and parses OpenAI-compatible streaming events. Set `SMARTDESK_LLM_ENABLED=false` or omit it to keep the Mock model.

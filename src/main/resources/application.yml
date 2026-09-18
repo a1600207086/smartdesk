@@ -46,6 +46,14 @@ smartdesk:
     max-page-size: 100
     context-window-size: 20
     max-context-chars: 12000
+  llm:
+    enabled: "${SMARTDESK_LLM_ENABLED:false}"
+    base-url: "${SMARTDESK_LLM_BASE_URL:https://api.deepseek.com/v1}"
+    api-key: "${SMARTDESK_LLM_API_KEY:}"
+    model: "${SMARTDESK_LLM_MODEL:deepseek-chat}"
+    timeout: 60s
+    temperature: 0.3
+    max-tokens: 1024
 
 server:
   port: 8080
