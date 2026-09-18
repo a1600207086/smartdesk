@@ -38,6 +38,10 @@
         SELECT COUNT(*) FROM knowledge_chunk WHERE document_id = #{documentId}
     </select>
 
+    <delete id="deleteByDocumentId">
+        DELETE FROM knowledge_chunk WHERE document_id = #{documentId}
+    </delete>
+
     <select id="findAllByTenantId" resultMap="chunkResultMap">
         SELECT
             id, document_id, tenant_id, chunk_index, content,

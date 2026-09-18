@@ -7,7 +7,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -56,6 +58,37 @@ public class KnowledgeController {
     ) {
         AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
         return ApiResponse.success(documentService.createFileDocument(user, title, sourceUri, file));
+    }
+
+    @GetMapping("/documents/{documentId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<KnowledgeDocumentResponse> findDocument(
+            Authentication authentication,
+            @PathVariable Long documentId
+    ) {
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
+        return ApiResponse.success(documentService.findById(documentId, user));
+    }
+
+    @DeleteMapping("/documents/{documentId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<Void> deleteDocument(
+            Authentication authentication,
+            @PathVariable Long documentId
+    ) {
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
+        documentService.deleteDocument(documentId, user);
+        return ApiResponse.success(null);
+    }
+
+    @PostMapping("/documents/{documentId}/reindex")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResponse<KnowledgeDocumentResponse> reindexDocument(
+            Authentication authentication,
+            @PathVariable Long documentId
+    ) {
+        AuthenticatedUser user = AuthenticatedUserSupport.require(authentication);
+        return ApiResponse.success(documentService.reindexDocument(documentId, user));
     }
 
     @GetMapping("/documents")

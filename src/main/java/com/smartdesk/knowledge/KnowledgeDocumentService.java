@@ -2,6 +2,7 @@ package com.smartdesk.knowledge;
 
 import com.smartdesk.auth.AuthenticatedUser;
 import com.smartdesk.common.error.ConflictException;
+import com.smartdesk.common.error.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -88,17 +89,53 @@ public class KnowledgeDocumentService {
     public List<KnowledgeDocumentResponse> findAll(AuthenticatedUser user) {
         return documentMapper.findAllByTenantId(user.tenantId())
                 .stream()
-                .map(document -> new KnowledgeDocumentResponse(
-                        document.getId(),
-                        document.getTitle(),
-                        document.getSourceType(),
-                        document.getSourceUri(),
-                        document.getStatus(),
-                        document.getEmbeddingModel(),
-                        chunkMapper.countByDocumentId(document.getId()),
-                        document.getCreatedAt()
-                ))
+                .map(this::toResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public KnowledgeDocumentResponse findById(Long documentId, AuthenticatedUser user) {
+        return toResponse(requireOwnedDocument(documentId, user));
+    }
+
+    @Transactional
+    public void deleteDocument(Long documentId, AuthenticatedUser user) {
+        requireOwnedDocument(documentId, user);
+        chunkMapper.deleteByDocumentId(documentId);
+        documentMapper.deleteById(documentId);
+        searchCache.invalidate(user.tenantId());
+    }
+
+    @Transactional
+    public KnowledgeDocumentResponse reindexDocument(Long documentId, AuthenticatedUser user) {
+        KnowledgeDocumentEntity document = requireOwnedDocument(documentId, user);
+        if (document.getContent() == null || document.getContent().isBlank()) {
+            throw new ConflictException("旧文档没有保存原始内容，请删除后重新上传");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        documentMapper.updateStatus(documentId, DocumentStatus.PROCESSING);
+        chunkMapper.deleteByDocumentId(documentId);
+
+        List<KnowledgeChunkEntity> chunks = createChunks(
+                documentId,
+                user.tenantId(),
+                document.getContent(),
+                now
+        );
+        chunkMapper.insertBatch(chunks);
+        documentMapper.updateForReindex(
+                documentId,
+                DocumentStatus.READY,
+                embeddingModel.modelId(),
+                now
+        );
+        searchCache.invalidate(user.tenantId());
+
+        document.setStatus(DocumentStatus.READY);
+        document.setEmbeddingModel(embeddingModel.modelId());
+        document.setUpdatedAt(now);
+        return toResponse(document, chunks.size());
     }
 
     private KnowledgeDocumentResponse createDocument(
@@ -109,7 +146,7 @@ public class KnowledgeDocumentService {
             String content
     ) {
         String normalizedTitle = title == null ? "" : title.trim();
-        String normalizedContent = content == null ? "" : content.trim();
+        String normalizedContent = normalizeContent(content);
         if (normalizedTitle.isEmpty()) {
             throw new IllegalArgumentException("文档标题不能为空");
         }
@@ -126,6 +163,7 @@ public class KnowledgeDocumentService {
         KnowledgeDocumentEntity document = new KnowledgeDocumentEntity();
         document.setTenantId(user.tenantId());
         document.setTitle(normalizedTitle);
+        document.setContent(normalizedContent);
         document.setSourceType(sourceType);
         document.setSourceUri(sourceUri);
         document.setStatus(DocumentStatus.PROCESSING);
@@ -136,7 +174,27 @@ public class KnowledgeDocumentService {
         document.setUpdatedAt(now);
         documentMapper.insert(document);
 
-        List<String> chunks = textChunker.split(normalizedContent);
+        List<KnowledgeChunkEntity> entities = createChunks(
+                document.getId(),
+                user.tenantId(),
+                normalizedContent,
+                now
+        );
+        chunkMapper.insertBatch(entities);
+        documentMapper.updateStatus(document.getId(), DocumentStatus.READY);
+        searchCache.invalidate(user.tenantId());
+
+        document.setStatus(DocumentStatus.READY);
+        return toResponse(document, entities.size());
+    }
+
+    private List<KnowledgeChunkEntity> createChunks(
+            Long documentId,
+            Long tenantId,
+            String content,
+            LocalDateTime createdAt
+    ) {
+        List<String> chunks = textChunker.split(content);
         if (chunks.isEmpty()) {
             throw new IllegalArgumentException("文档内容无法生成有效切片");
         }
@@ -150,29 +208,54 @@ public class KnowledgeDocumentService {
         for (int index = 0; index < chunks.size(); index++) {
             String chunk = chunks.get(index);
             KnowledgeChunkEntity entity = new KnowledgeChunkEntity();
-            entity.setDocumentId(document.getId());
-            entity.setTenantId(user.tenantId());
+            entity.setDocumentId(documentId);
+            entity.setTenantId(tenantId);
             entity.setChunkIndex(index);
             entity.setContent(chunk);
             entity.setEmbeddingJson(vectorCodec.encode(vectors.get(index)));
             entity.setTokenCount(Math.max(1, chunk.length() / 4));
-            entity.setCreatedAt(now);
+            entity.setCreatedAt(createdAt);
             entities.add(entity);
         }
-        chunkMapper.insertBatch(entities);
-        documentMapper.updateStatus(document.getId(), DocumentStatus.READY);
-        searchCache.invalidate(user.tenantId());
+        return entities;
+    }
 
+    private KnowledgeDocumentEntity requireOwnedDocument(
+            Long documentId,
+            AuthenticatedUser user
+    ) {
+        KnowledgeDocumentEntity document = documentMapper.findById(documentId);
+        if (document == null || !document.getTenantId().equals(user.tenantId())) {
+            throw new NotFoundException("知识文档不存在: " + documentId);
+        }
+        return document;
+    }
+
+    private KnowledgeDocumentResponse toResponse(KnowledgeDocumentEntity document) {
+        return toResponse(document, chunkMapper.countByDocumentId(document.getId()));
+    }
+
+    private KnowledgeDocumentResponse toResponse(
+            KnowledgeDocumentEntity document,
+            int chunkCount
+    ) {
         return new KnowledgeDocumentResponse(
                 document.getId(),
                 document.getTitle(),
                 document.getSourceType(),
                 document.getSourceUri(),
-                DocumentStatus.READY,
-                embeddingModel.modelId(),
-                entities.size(),
+                document.getStatus(),
+                document.getEmbeddingModel(),
+                chunkCount,
                 document.getCreatedAt()
         );
+    }
+
+    private String normalizeContent(String content) {
+        if (content == null) {
+            return "";
+        }
+        return content.replace("\r\n", "\n").replace('\r', '\n').trim();
     }
 
     private String sha256(String content) {

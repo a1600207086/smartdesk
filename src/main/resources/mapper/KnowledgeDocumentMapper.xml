@@ -8,6 +8,7 @@
         <id property="id" column="id"/>
         <result property="tenantId" column="tenant_id"/>
         <result property="title" column="title"/>
+        <result property="content" column="content"/>
         <result property="sourceType" column="source_type"/>
         <result property="sourceUri" column="source_uri"/>
         <result property="status" column="status"/>
@@ -19,7 +20,7 @@
     </resultMap>
 
     <sql id="documentColumns">
-        id, tenant_id, title, source_type, source_uri, status, checksum,
+        id, tenant_id, title, content, source_type, source_uri, status, checksum,
         embedding_model, created_by, created_at, updated_at
     </sql>
 
@@ -28,11 +29,11 @@
             useGeneratedKeys="true"
             keyProperty="id">
         INSERT INTO knowledge_document (
-            tenant_id, title, source_type, source_uri, status, checksum,
+            tenant_id, title, content, source_type, source_uri, status, checksum,
             embedding_model, created_by, created_at, updated_at
         )
         VALUES (
-            #{tenantId}, #{title}, #{sourceType}, #{sourceUri}, #{status}, #{checksum},
+            #{tenantId}, #{title}, #{content}, #{sourceType}, #{sourceUri}, #{status}, #{checksum},
             #{embeddingModel}, #{createdBy}, #{createdAt}, #{updatedAt}
         )
     </insert>
@@ -58,6 +59,17 @@
         WHERE id = #{id}
     </update>
 
+    <update id="updateForReindex">
+        UPDATE knowledge_document
+        SET status = #{status},
+            embedding_model = #{embeddingModel},
+            updated_at = #{updatedAt}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM knowledge_document WHERE id = #{id}
+    </delete>
     <select id="countByTenantIdAndChecksum" resultType="int">
         SELECT COUNT(*)
         FROM knowledge_document

@@ -16,6 +16,15 @@ public interface KnowledgeDocumentMapper {
 
     int updateStatus(@Param("id") Long id, @Param("status") DocumentStatus status);
 
+    int updateForReindex(
+            @Param("id") Long id,
+            @Param("status") DocumentStatus status,
+            @Param("embeddingModel") String embeddingModel,
+            @Param("updatedAt") java.time.LocalDateTime updatedAt
+    );
+
+    int deleteById(@Param("id") Long id);
+
     int countByTenantIdAndChecksum(
             @Param("tenantId") Long tenantId,
             @Param("checksum") String checksum

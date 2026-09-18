@@ -12,5 +12,7 @@ public interface KnowledgeChunkMapper {
 
     int countByDocumentId(@Param("documentId") Long documentId);
 
+    int deleteByDocumentId(@Param("documentId") Long documentId);
+
     List<KnowledgeChunkEntity> findAllByTenantId(@Param("tenantId") Long tenantId);
 }

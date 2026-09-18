@@ -7,6 +7,7 @@ public class KnowledgeDocumentEntity {
     private Long id;
     private Long tenantId;
     private String title;
+    private String content;
     private DocumentSourceType sourceType;
     private String sourceUri;
     private DocumentStatus status;
@@ -21,7 +22,9 @@ public class KnowledgeDocumentEntity {
     public Long getTenantId() { return tenantId; }
     public void setTenantId(Long tenantId) { this.tenantId = tenantId; }
     public String getTitle() { return title; }
+    public String getContent() { return content; }
     public void setTitle(String title) { this.title = title; }
+    public void setContent(String content) { this.content = content; }
     public DocumentSourceType getSourceType() { return sourceType; }
     public void setSourceType(DocumentSourceType sourceType) { this.sourceType = sourceType; }
     public String getSourceUri() { return sourceUri; }

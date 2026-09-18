@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -34,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Transactional
 class KnowledgeApiTests {
 
     @Autowired
@@ -95,6 +97,61 @@ class KnowledgeApiTests {
                 .andExpect(jsonPath("$.data[0].documentTitle").value("退款政策"))
                 .andExpect(jsonPath("$.data[0].content").value(org.hamcrest.Matchers.containsString("三个工作日")))
                 .andExpect(jsonPath("$.data[0].score").isNumber());
+    }
+
+    @Test
+    void shouldReindexAndDeleteDocument() throws Exception {
+        ensureTenant("knowledgeco");
+        String token = registerAndLogin("knowledgeco", "knowledgeadmin");
+
+        String document = """
+                {
+                  "title": "物流规则",
+                  "content": "物流规则：普通快递预计三个工作日送达，偏远地区可能需要五个工作日。",
+                  "sourceUri": "internal://policy/logistics"
+                }
+                """;
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/knowledge/documents/text")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(document))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        long documentId = objectMapper.readTree(createResult.getResponse().getContentAsString())
+                .path("data")
+                .path("id")
+                .asLong();
+
+        mockMvc.perform(post("/api/v1/knowledge/documents/{id}/reindex", documentId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("READY"))
+                .andExpect(jsonPath("$.data.embeddingModel").value("hash-v1-256"))
+                .andExpect(jsonPath("$.data.chunkCount").value(1));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(
+                        "/api/v1/knowledge/documents/{id}",
+                        documentId
+                )
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("OK"));
+
+        String search = """
+                {
+                  "query": "普通快递多久送达？",
+                  "topK": 3
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/knowledge/search")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(search))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(0));
     }
 
     private void ensureTenant(String tenantCode) throws Exception {

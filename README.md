@@ -228,3 +228,31 @@ $env:SMARTDESK_EMBEDDING_DIMENSIONS="256"
 ```
 
 Each document records its embedding model id. Existing Hash documents are ignored when a real embedding model is active; re-upload or reindex them after switching models.
+
+## Knowledge Document Management
+
+List and inspect documents:
+
+```powershell
+Invoke-RestMethod -Uri http://localhost:8080/api/v1/knowledge/documents `
+  -Headers @{ Authorization = "Bearer $token" }
+
+Invoke-RestMethod -Uri http://localhost:8080/api/v1/knowledge/documents/1 `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+Reindex after switching embedding models:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:8080/api/v1/knowledge/documents/1/reindex `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+Delete a document:
+
+```powershell
+Invoke-RestMethod -Method Delete `
+  -Uri http://localhost:8080/api/v1/knowledge/documents/1 `
+  -Headers @{ Authorization = "Bearer $token" }
+```
