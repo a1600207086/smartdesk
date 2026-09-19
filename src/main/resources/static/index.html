@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartDesk Agent Console</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div><span class="eyebrow">INTELLIGENT AFTER-SALES</span><h1>SmartDesk</h1></div>
+      <div id="sessionLabel" class="muted">未登录</div>
+    </header>
+
+    <section id="loginPanel" class="card login-card">
+      <h2>登录工作台</h2><p class="muted">使用项目演示账号登录</p>
+      <form id="loginForm" class="form-grid">
+        <label>租户编码<input id="tenantCode" value="acme" required></label>
+        <label>用户名<input id="username" value="alice" required></label>
+        <label>密码<input id="password" type="password" value="Password123!" required></label>
+        <button>登录 SmartDesk</button>
+      </form>
+    </section>
+
+    <section id="workspace" class="workspace hidden">
+      <aside class="sidebar">
+        <div class="card stat-card"><span class="muted">工单总数</span><strong id="totalCount">-</strong><small id="urgentCount">高优先级未关闭：-</small></div>
+        <div class="card stat-card"><span class="muted">平均解决时长</span><strong id="avgHours">-</strong><small>小时</small></div>
+        <div class="card"><h3>工单状态</h3><div id="ticketStats" class="stats-list"></div></div>
+        <button id="refreshButton" class="secondary">刷新看板</button>
+        <button id="logoutButton" class="ghost">退出登录</button>
+      </aside>
+      <section class="content">
+        <div class="card chat-card">
+          <div class="section-title"><div><span class="eyebrow">AGENT CHAT</span><h2>智能售后助手</h2></div><span id="routeBadge" class="badge">READY</span></div>
+          <div id="messages" class="messages"><div class="empty">输入订单问题、退款政策，或请求转人工客服。</div></div>
+          <form id="chatForm" class="chat-form"><textarea id="chatInput" placeholder="例如：订单号 A10001 什么时候到？" required></textarea><button>发送消息</button></form>
+        </div>
+        <div class="lower-grid">
+          <div class="card"><h3>最近工单</h3><div id="tickets" class="tickets"><span class="muted">暂无数据</span></div></div>
+          <div class="card"><h3>系统说明</h3><p class="muted">本页面直接调用 Spring Boot API，Agent 通过 SSE 返回 route、tool、citation、message 和 done 事件。</p><div id="activity" class="activity">等待 Agent 执行...</div></div>
+        </div>
+      </section>
+    </section>
+    <div id="toast" class="toast"></div>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
