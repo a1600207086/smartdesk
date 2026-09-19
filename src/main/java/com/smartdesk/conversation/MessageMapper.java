@@ -10,6 +10,11 @@ public interface MessageMapper {
 
     int insert(MessageEntity message);
 
+    MessageEntity findByIdAndConversationId(
+            @Param("id") Long id,
+            @Param("conversationId") Long conversationId
+    );
+
     List<MessageEntity> findPage(
             @Param("conversationId") Long conversationId,
             @Param("beforeId") Long beforeId,

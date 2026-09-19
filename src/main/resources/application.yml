@@ -24,6 +24,10 @@ spring:
       port: "${SMARTDESK_REDIS_PORT:6379}"
       password: "${SMARTDESK_REDIS_PASSWORD:}"
       timeout: 500ms
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
 
 mybatis:
   mapper-locations: classpath*:mapper/**/*.xml
@@ -62,6 +66,8 @@ smartdesk:
     max-top-k: 20
     min-score: 0.05
     cache-ttl: 10m
+    max-upload-bytes: 10485760
+    max-extracted-chars: 1000000
   embedding:
     enabled: "${SMARTDESK_EMBEDDING_ENABLED:false}"
     base-url: "${SMARTDESK_EMBEDDING_BASE_URL:https://api.openai.com/v1}"
@@ -73,6 +79,11 @@ smartdesk:
 
 server:
   port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force-response: true
 
 management:
   endpoints:

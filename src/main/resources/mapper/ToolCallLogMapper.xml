@@ -16,6 +16,27 @@
             #{agentRunId}, #{toolName}, #{argumentsJson}, #{resultJson},
             #{success}, #{errorMessage}, #{durationMs}, #{startedAt}, #{finishedAt}
         )
-    </insert>
+        </insert>
+
+    <resultMap id="toolCallLogResultMap" type="com.smartdesk.agent.ToolCallLogEntity">
+        <id property="id" column="id"/>
+        <result property="agentRunId" column="agent_run_id"/>
+        <result property="toolName" column="tool_name"/>
+        <result property="argumentsJson" column="arguments_json"/>
+        <result property="resultJson" column="result_json"/>
+        <result property="success" column="success"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="durationMs" column="duration_ms"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="finishedAt" column="finished_at"/>
+    </resultMap>
+
+    <select id="findAllByAgentRunId" resultMap="toolCallLogResultMap">
+        SELECT id, agent_run_id, tool_name, arguments_json, result_json,
+               success, error_message, duration_ms, started_at, finished_at
+        FROM tool_call_log
+        WHERE agent_run_id = #{agentRunId}
+        ORDER BY started_at ASC, id ASC
+    </select>
 
 </mapper>

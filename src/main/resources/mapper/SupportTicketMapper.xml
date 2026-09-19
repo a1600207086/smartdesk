@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smartdesk.ticket.SupportTicketMapper">
+
+    <resultMap id="supportTicketResultMap" type="com.smartdesk.ticket.SupportTicketEntity">
+        <id property="id" column="id"/>
+        <result property="ticketNo" column="ticket_no"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="subject" column="subject"/>
+        <result property="description" column="description"/>
+        <result property="priority" column="priority"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="resolvedAt" column="resolved_at"/>
+    </resultMap>
+
+    <sql id="ticketColumns">
+        id, ticket_no, tenant_id, user_id, conversation_id, subject,
+        description, priority, status, created_at, updated_at, resolved_at
+    </sql>
+
+    <insert id="insert"
+            parameterType="com.smartdesk.ticket.SupportTicketEntity"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        INSERT INTO support_ticket (
+            ticket_no, tenant_id, user_id, conversation_id, subject,
+            description, priority, status, created_at, updated_at, resolved_at
+        )
+        VALUES (
+            #{ticketNo}, #{tenantId}, #{userId}, #{conversationId}, #{subject},
+            #{description}, #{priority}, #{status}, #{createdAt}, #{updatedAt}, #{resolvedAt}
+        )
+    </insert>
+
+    <select id="findActiveByConversationId" resultMap="supportTicketResultMap">
+        SELECT <include refid="ticketColumns"/>
+        FROM support_ticket
+        WHERE tenant_id = #{tenantId}
+          AND user_id = #{userId}
+          AND conversation_id = #{conversationId}
+          AND status IN ('OPEN', 'IN_PROGRESS')
+        ORDER BY id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findByIdAndTenantId" resultMap="supportTicketResultMap">
+        SELECT <include refid="ticketColumns"/>
+        FROM support_ticket
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+    </select>
+
+    <select id="findAllByTenantId" resultMap="supportTicketResultMap">
+        SELECT <include refid="ticketColumns"/>
+        FROM support_ticket
+        WHERE tenant_id = #{tenantId}
+        ORDER BY updated_at DESC, id DESC
+    </select>
+
+    <select id="findAllByTenantIdAndUserId" resultMap="supportTicketResultMap">
+        SELECT <include refid="ticketColumns"/>
+        FROM support_ticket
+        WHERE tenant_id = #{tenantId}
+          AND user_id = #{userId}
+        ORDER BY updated_at DESC, id DESC
+    </select>
+
+    <update id="updateStatus">
+        UPDATE support_ticket
+        SET status = #{status},
+            updated_at = #{updatedAt},
+            resolved_at = #{resolvedAt}
+        WHERE id = #{id}
+          AND tenant_id = #{tenantId}
+    </update>
+
+    <select id="summarizeByTenantId" resultType="com.smartdesk.ticket.TicketMetricsRow">
+        SELECT
+            COUNT(*) AS total_count,
+            COALESCE(SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END), 0) AS open_count,
+            COALESCE(SUM(CASE WHEN status = 'IN_PROGRESS' THEN 1 ELSE 0 END), 0) AS in_progress_count,
+            COALESCE(SUM(CASE WHEN status = 'RESOLVED' THEN 1 ELSE 0 END), 0) AS resolved_count,
+            COALESCE(SUM(CASE WHEN status = 'CLOSED' THEN 1 ELSE 0 END), 0) AS closed_count,
+            COALESCE(SUM(CASE WHEN priority = 'URGENT'
+                              AND status NOT IN ('RESOLVED', 'CLOSED')
+                             THEN 1 ELSE 0 END), 0) AS urgent_open_count,
+            COALESCE(AVG(
+                CASE WHEN resolved_at IS NOT NULL
+                     THEN TIMESTAMPDIFF(MINUTE, created_at, resolved_at) / 60.0
+                     ELSE NULL END
+            ), 0) AS average_resolution_hours
+        FROM support_ticket
+        WHERE tenant_id = #{tenantId}
+    </select>
+
+</mapper>

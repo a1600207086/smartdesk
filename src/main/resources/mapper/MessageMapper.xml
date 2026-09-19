@@ -37,6 +37,14 @@
         )
     </insert>
 
+    <select id="findByIdAndConversationId" resultMap="messageResultMap">
+        SELECT
+        <include refid="messageColumns"/>
+        FROM message
+        WHERE id = #{id}
+          AND conversation_id = #{conversationId}
+    </select>
+
     <select id="findPage" resultMap="messageResultMap">
         SELECT
         <include refid="messageColumns"/>

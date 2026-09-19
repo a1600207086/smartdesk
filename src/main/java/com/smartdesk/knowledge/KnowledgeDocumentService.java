@@ -6,8 +6,6 @@ import com.smartdesk.common.error.NotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
@@ -24,6 +22,7 @@ public class KnowledgeDocumentService {
     private final EmbeddingModel embeddingModel;
     private final EmbeddingVectorCodec vectorCodec;
     private final KnowledgeSearchCache searchCache;
+    private final DocumentTextExtractor documentTextExtractor;
 
     public KnowledgeDocumentService(
             KnowledgeDocumentMapper documentMapper,
@@ -31,7 +30,8 @@ public class KnowledgeDocumentService {
             TextChunker textChunker,
             EmbeddingModel embeddingModel,
             EmbeddingVectorCodec vectorCodec,
-            KnowledgeSearchCache searchCache
+            KnowledgeSearchCache searchCache,
+            DocumentTextExtractor documentTextExtractor
     ) {
         this.documentMapper = documentMapper;
         this.chunkMapper = chunkMapper;
@@ -39,6 +39,7 @@ public class KnowledgeDocumentService {
         this.embeddingModel = embeddingModel;
         this.vectorCodec = vectorCodec;
         this.searchCache = searchCache;
+        this.documentTextExtractor = documentTextExtractor;
     }
 
     @Transactional
@@ -62,27 +63,8 @@ public class KnowledgeDocumentService {
             String sourceUri,
             MultipartFile file
     ) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("上传文件不能为空");
-        }
-
-        String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
-        String lowerName = filename.toLowerCase();
-        boolean textFile = lowerName.endsWith(".txt")
-                || lowerName.endsWith(".md")
-                || lowerName.endsWith(".markdown");
-        boolean textContentType = file.getContentType() != null
-                && file.getContentType().startsWith("text/");
-        if (!textFile && !textContentType) {
-            throw new IllegalArgumentException("当前版本仅支持 txt 和 markdown 文件");
-        }
-
-        try {
-            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
-            return createDocument(user, title, DocumentSourceType.FILE, sourceUri, content);
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("无法读取上传文件", exception);
-        }
+        String content = documentTextExtractor.extract(file);
+        return createDocument(user, title, DocumentSourceType.FILE, sourceUri, content);
     }
 
     @Transactional
@@ -106,27 +88,8 @@ public class KnowledgeDocumentService {
             String sourceUri,
             MultipartFile file
     ) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("上传文件不能为空");
-        }
-
-        String filename = file.getOriginalFilename() == null ? "" : file.getOriginalFilename();
-        String lowerName = filename.toLowerCase();
-        boolean textFile = lowerName.endsWith(".txt")
-                || lowerName.endsWith(".md")
-                || lowerName.endsWith(".markdown");
-        boolean textContentType = file.getContentType() != null
-                && file.getContentType().startsWith("text/");
-        if (!textFile && !textContentType) {
-            throw new IllegalArgumentException("当前版本仅支持 txt 和 markdown 文件");
-        }
-
-        try {
-            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
-            return createPendingDocument(user, title, DocumentSourceType.FILE, sourceUri, content);
-        } catch (IOException exception) {
-            throw new IllegalArgumentException("无法读取上传文件", exception);
-        }
+        String content = documentTextExtractor.extract(file);
+        return createPendingDocument(user, title, DocumentSourceType.FILE, sourceUri, content);
     }
 
     @Transactional

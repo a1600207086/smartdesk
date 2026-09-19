@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface AgentRunMapper {
@@ -19,4 +20,16 @@ public interface AgentRunMapper {
             @Param("errorMessage") String errorMessage,
             @Param("finishedAt") LocalDateTime finishedAt
     );
+
+    List<AgentRunEntity> findAllByConversationId(
+            @Param("conversationId") Long conversationId,
+            @Param("limit") int limit
+    );
+
+    AgentRunEntity findByIdAndConversationId(
+            @Param("id") Long id,
+            @Param("conversationId") Long conversationId
+    );
+
+    AgentMetricsRow summarizeByTenantId(@Param("tenantId") Long tenantId);
 }

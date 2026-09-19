@@ -11,7 +11,15 @@ class EmbeddingModelSelectionTests {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withBean(KnowledgeProperties.class, () -> new KnowledgeProperties(
-                    800, 120, 256, 4, 20, 0.05, Duration.ofMinutes(10)
+                    800,
+                    120,
+                    256,
+                    4,
+                    20,
+                    0.05,
+                    Duration.ofMinutes(10),
+                    10 * 1024 * 1024,
+                    1_000_000
             ))
             .withUserConfiguration(HashEmbeddingModel.class);
 

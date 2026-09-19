@@ -4,6 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartdesk.auth.LoginAttemptGuard;
 import com.smartdesk.auth.TokenBlacklistService;
 import com.smartdesk.knowledge.KnowledgeSearchCache;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,11 +19,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -24,7 +33,9 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
@@ -93,6 +104,10 @@ class KnowledgeApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(search))
                 .andExpect(status().isOk())
+                .andExpect(header().string(
+                        HttpHeaders.CONTENT_TYPE,
+                        MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8"
+                ))
                 .andExpect(jsonPath("$.data.length()").value(1))
                 .andExpect(jsonPath("$.data[0].documentTitle").value("退款政策"))
                 .andExpect(jsonPath("$.data[0].content").value(org.hamcrest.Matchers.containsString("三个工作日")))
@@ -152,6 +167,103 @@ class KnowledgeApiTests {
                         .content(search))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.length()").value(0));
+    }
+
+    @Test
+    void shouldExtractAndIndexPdfDocument() throws Exception {
+        ensureTenant("knowledgepdf");
+        String token = registerAndLogin("knowledgepdf", "pdfadmin");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "shipping-policy.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                createPdf("Express orders arrive within two business days.")
+        );
+
+        mockMvc.perform(multipart("/api/v1/knowledge/documents/upload")
+                        .file(file)
+                        .param("title", "PDF Shipping Policy")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("READY"))
+                .andExpect(jsonPath("$.data.chunkCount").value(1));
+
+        mockMvc.perform(post("/api/v1/knowledge/search")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"query":"How soon do express orders arrive?","topK":3}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].documentTitle").value("PDF Shipping Policy"))
+                .andExpect(jsonPath("$.data[0].content")
+                        .value(org.hamcrest.Matchers.containsString("two business days")));
+    }
+
+    @Test
+    void shouldExtractAndIndexDocxDocument() throws Exception {
+        ensureTenant("knowledgedocx");
+        String token = registerAndLogin("knowledgedocx", "docxadmin");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "warranty-policy.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                createDocx("Laptop products include a two-year warranty.")
+        );
+
+        mockMvc.perform(multipart("/api/v1/knowledge/documents/upload")
+                        .file(file)
+                        .param("title", "DOCX Warranty Policy")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status").value("READY"))
+                .andExpect(jsonPath("$.data.chunkCount").value(1));
+    }
+
+    @Test
+    void shouldRejectFileWhenExtensionDoesNotMatchContent() throws Exception {
+        ensureTenant("knowledgeinvalidfile");
+        String token = registerAndLogin("knowledgeinvalidfile", "invalidfileadmin");
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "fake.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                "This is plain text, not a PDF.".getBytes(java.nio.charset.StandardCharsets.UTF_8)
+        );
+
+        mockMvc.perform(multipart("/api/v1/knowledge/documents/upload")
+                        .file(file)
+                        .param("title", "Invalid PDF")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    private byte[] createPdf(String text) throws Exception {
+        try (PDDocument document = new PDDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream content = new PDPageContentStream(document, page)) {
+                content.beginText();
+                content.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                content.newLineAtOffset(72, 720);
+                content.showText(text);
+                content.endText();
+            }
+            document.save(output);
+            return output.toByteArray();
+        }
+    }
+
+    private byte[] createDocx(String text) throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            XWPFParagraph paragraph = document.createParagraph();
+            paragraph.createRun().setText(text);
+            document.write(output);
+            return output.toByteArray();
+        }
     }
 
     private void ensureTenant(String tenantCode) throws Exception {

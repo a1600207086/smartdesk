@@ -1,10 +1,14 @@
 package com.smartdesk.agent;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartdesk.auth.AuthenticatedUser;
 import com.smartdesk.conversation.ConversationContextService;
 import com.smartdesk.conversation.CreateUserMessageRequest;
 import com.smartdesk.conversation.MessageResponse;
 import com.smartdesk.conversation.MessageService;
+import com.smartdesk.knowledge.KnowledgeCitation;
+import com.smartdesk.knowledge.KnowledgeSearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -28,6 +32,7 @@ public class AgentOrchestrator {
     private final ToolRegistry toolRegistry;
     private final AgentChatModel chatModel;
     private final AgentRunService agentRunService;
+    private final ObjectMapper objectMapper;
 
     public AgentOrchestrator(
             MessageService messageService,
@@ -35,7 +40,8 @@ public class AgentOrchestrator {
             AgentRouter agentRouter,
             ToolRegistry toolRegistry,
             AgentChatModel chatModel,
-            AgentRunService agentRunService
+            AgentRunService agentRunService,
+            ObjectMapper objectMapper
     ) {
         this.messageService = messageService;
         this.contextService = contextService;
@@ -43,6 +49,7 @@ public class AgentOrchestrator {
         this.toolRegistry = toolRegistry;
         this.chatModel = chatModel;
         this.agentRunService = agentRunService;
+        this.objectMapper = objectMapper;
     }
 
     public void run(
@@ -77,8 +84,15 @@ public class AgentOrchestrator {
             sendRouteEvent(emitter, decision);
 
             Map<String, Object> toolResult = executeToolIfNeeded(run, decision, user, emitter);
+            List<KnowledgeCitation> citations = extractCitations(decision, toolResult);
+            sendCitationEvent(emitter, citations);
 
-            List<AgentModelMessage> modelMessages = buildModelMessages(context, decision, toolResult);
+            List<AgentModelMessage> modelMessages = buildModelMessages(
+                    context,
+                    decision,
+                    toolResult,
+                    citations
+            );
             StringBuilder response = new StringBuilder();
             chatModel.stream(new AgentModelRequest(modelMessages), chunk -> {
                 response.append(chunk);
@@ -88,7 +102,8 @@ public class AgentOrchestrator {
             MessageResponse assistantMessage = messageService.appendAssistantMessage(
                     conversationId,
                     user,
-                    response.toString()
+                    response.toString(),
+                    citations
             );
 
             agentRunService.complete(run.getId());
@@ -154,7 +169,7 @@ public class AgentOrchestrator {
             send(emitter, "tool", Map.of(
                     "toolName", tool.name(),
                     "status", "COMPLETED",
-                    "result", result
+                    "result", summarizeToolResult(tool.name(), result)
             ));
             return result;
         } catch (RuntimeException exception) {
@@ -182,12 +197,15 @@ public class AgentOrchestrator {
     private List<AgentModelMessage> buildModelMessages(
             List<MessageResponse> context,
             AgentDecision decision,
-            Map<String, Object> toolResult
-    ) {
+            Map<String, Object> toolResult,
+            List<KnowledgeCitation> citations
+    ) throws JsonProcessingException {
         List<AgentModelMessage> messages = new java.util.ArrayList<>();
         messages.add(new AgentModelMessage(
                 "system",
-                "You are SmartDesk, an after-sales assistant. Answer concisely and do not invent order data."
+                "You are SmartDesk, an after-sales assistant. Answer concisely using only the provided "
+                        + "tool result. For knowledge answers, cite supporting sources as [1], [2], and say "
+                        + "that no reliable answer was found when the matches are empty. Do not invent facts."
         ));
         for (MessageResponse message : context) {
             messages.add(new AgentModelMessage(
@@ -196,12 +214,80 @@ public class AgentOrchestrator {
             ));
         }
         if (decision.route() == AgentRoute.TOOL_CALL) {
+            Map<String, Object> toolContext = new LinkedHashMap<>();
+            toolContext.put("toolName", decision.toolName());
+            toolContext.put("result", toolResult);
+            toolContext.put("citations", citations);
             messages.add(new AgentModelMessage(
                     "system",
-                    "TOOL_RESULT:" + toolResult
+                    "TOOL_CONTEXT_JSON:" + objectMapper.writeValueAsString(toolContext)
             ));
         }
         return List.copyOf(messages);
+    }
+
+    private Object summarizeToolResult(String toolName, Map<String, Object> result) {
+        if (!"searchKnowledge".equals(toolName)) {
+            return result;
+        }
+        Object matches = result.get("matches");
+        int matchCount = matches instanceof List<?> list ? list.size() : 0;
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("query", result.get("query"));
+        summary.put("matchCount", matchCount);
+        return summary;
+    }
+
+    private List<KnowledgeCitation> extractCitations(
+            AgentDecision decision,
+            Map<String, Object> toolResult
+    ) {
+        if (!"searchKnowledge".equals(decision.toolName())) {
+            return List.of();
+        }
+        Object matchesValue = toolResult.get("matches");
+        if (!(matchesValue instanceof List<?> matches)) {
+            return List.of();
+        }
+
+        List<KnowledgeCitation> citations = new java.util.ArrayList<>();
+        for (Object match : matches) {
+            if (!(match instanceof KnowledgeSearchResult result)) {
+                continue;
+            }
+            citations.add(new KnowledgeCitation(
+                    citations.size() + 1,
+                    result.documentId(),
+                    result.documentTitle(),
+                    result.chunkId(),
+                    result.chunkIndex(),
+                    result.score(),
+                    citationSnippet(result.content())
+            ));
+            if (citations.size() == 3) {
+                break;
+            }
+        }
+        return List.copyOf(citations);
+    }
+
+    private String citationSnippet(String content) {
+        if (content == null) {
+            return "";
+        }
+        String normalized = content.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 180
+                ? normalized
+                : normalized.substring(0, 180) + "...";
+    }
+
+    private void sendCitationEvent(
+            SseEmitter emitter,
+            List<KnowledgeCitation> citations
+    ) throws IOException {
+        if (!citations.isEmpty()) {
+            send(emitter, "citation", Map.of("citations", citations));
+        }
     }
 
     private void sendRouteEvent(SseEmitter emitter, AgentDecision decision) throws IOException {

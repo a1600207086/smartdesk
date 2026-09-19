@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smartdesk.feedback.MessageFeedbackMapper">
+
+    <resultMap id="messageFeedbackResultMap"
+               type="com.smartdesk.feedback.MessageFeedbackEntity">
+        <id property="id" column="id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="messageId" column="message_id"/>
+        <result property="rating" column="rating"/>
+        <result property="comment" column="comment"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="upsert" parameterType="com.smartdesk.feedback.MessageFeedbackEntity">
+        INSERT INTO message_feedback (
+            tenant_id,
+            user_id,
+            conversation_id,
+            message_id,
+            rating,
+            comment,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            #{tenantId},
+            #{userId},
+            #{conversationId},
+            #{messageId},
+            #{rating},
+            #{comment},
+            #{createdAt},
+            #{updatedAt}
+        )
+        ON DUPLICATE KEY UPDATE
+            rating = VALUES(rating),
+            comment = VALUES(comment),
+            updated_at = VALUES(updated_at)
+    </insert>
+
+    <select id="findByTenantIdAndUserIdAndMessageId" resultMap="messageFeedbackResultMap">
+        SELECT
+            id,
+            tenant_id,
+            user_id,
+            conversation_id,
+            message_id,
+            rating,
+            comment,
+            created_at,
+            updated_at
+        FROM message_feedback
+        WHERE tenant_id = #{tenantId}
+          AND user_id = #{userId}
+          AND message_id = #{messageId}
+    </select>
+
+    <delete id="deleteByTenantIdAndUserIdAndMessageId">
+        DELETE FROM message_feedback
+        WHERE tenant_id = #{tenantId}
+          AND user_id = #{userId}
+          AND message_id = #{messageId}
+    </delete>
+
+    <select id="summarizeByTenantId" resultType="com.smartdesk.feedback.FeedbackSummaryRow">
+        SELECT
+            COUNT(*) AS total_count,
+            COALESCE(SUM(CASE WHEN rating = 'HELPFUL' THEN 1 ELSE 0 END), 0) AS helpful_count,
+            COALESCE(SUM(CASE WHEN rating = 'NOT_HELPFUL' THEN 1 ELSE 0 END), 0) AS not_helpful_count
+        FROM message_feedback
+        WHERE tenant_id = #{tenantId}
+    </select>
+
+</mapper>

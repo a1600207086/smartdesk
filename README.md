@@ -10,6 +10,13 @@ SmartDesk is an intelligent after-sales and knowledge-base agent platform built 
 - Spring Security and BCrypt
 - JWT registration, login, logout, and profile API
 - Redis failed-login rate limiting and token blacklist
+- Conversation history, Redis recent memory, and SSE Agent chat
+- Order-query and knowledge-search Agent tools
+- Async TXT, Markdown, PDF, and DOCX knowledge ingestion
+- RAG retrieval with persisted answer citations
+- Per-message answer feedback and tenant-level quality metrics
+- Agent run traces, tool-call audit details, and tenant-level execution metrics
+- Agent-triggered human handoff tickets with an auditable status workflow
 - H2 integration tests
 
 ## Run tests
@@ -133,6 +140,9 @@ Read recent messages:
 Invoke-RestMethod `
   -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages?limit=20" `
   -Headers @{ Authorization = "Bearer $token" }
+```
+
+Assistant messages include a `citations` array. Knowledge citations are stored in MySQL and returned from both database-backed and Redis-cached conversation history. User messages and answers without knowledge sources return an empty array.
 
 ## Agent SSE Chat
 
@@ -151,9 +161,174 @@ curl.exe -N -X POST `
   -d $chat
 ```
 
-The stream emits `start`, `route`, optional `tool`, `message`, and `done` events.
+The stream emits `start`, `route`, optional `tool` and `citation`, `message`, and `done` events.
+Knowledge citations include the document id, title, chunk id, chunk index, similarity score, and a short snippet. The completed `tool` event returns only the query and match count; the full tool result remains in `tool_call_log` for auditing.
+
+```text
+event:citation
+data:{"citations":[{"index":1,"documentId":5,"documentTitle":"Refund Policy Demo","chunkId":6,"chunkIndex":0,"score":0.5583,"snippet":"..."}]}
+```
 
 The current model is deterministic and does not require an API key. A real model provider can be added by implementing `AgentChatModel`.
+
+## Agent Observability
+
+List the latest Agent runs in a conversation. The default limit is 20 and the maximum is 100:
+
+```powershell
+$runs = Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/agent-runs?limit=20" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$runs.data | Select-Object id, route, status, durationMs, startedAt | Format-Table
+```
+
+Inspect one run and its structured tool arguments, result, success flag, and duration:
+
+```powershell
+$runId = $runs.data[0].id
+
+$run = Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/agent-runs/$runId" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$run.data | Format-List
+$run.data.toolCalls | Format-List
+```
+
+Only the owner of a conversation can read its traces. An `ADMIN` can inspect tenant-scoped execution metrics:
+
+```powershell
+$metrics = Invoke-RestMethod `
+  -Uri http://localhost:8080/api/v1/agent/metrics `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$metrics.data | Format-List
+```
+
+The metrics contain run totals, completion rate, tool-call totals, tool success rate, and average tool duration. A normal `USER` receives HTTP `403` from this endpoint.
+
+## Human Handoff Tickets
+
+Ask the Agent to create a human-support ticket:
+
+```powershell
+$chatBody = @{
+  message = "退款问题一直没有解决，请帮我转人工客服"
+} | ConvertTo-Json
+
+$chatResponse = Invoke-WebRequest `
+  -UseBasicParsing `
+  -Method Post `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/chat" `
+  -Headers @{
+    Authorization = "Bearer $token"
+    Accept = "text/event-stream"
+  } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([Text.Encoding]::UTF8.GetBytes($chatBody))
+
+$chatResponse.Content
+```
+
+The router selects `createSupportTicket` before knowledge search. Repeated handoff requests in the same conversation reuse an existing `OPEN` or `IN_PROGRESS` ticket.
+
+List visible tickets:
+
+```powershell
+$tickets = Invoke-RestMethod `
+  -Uri http://localhost:8080/api/v1/tickets `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$tickets.data |
+  Select-Object id, ticketNo, subject, priority, status, updatedAt |
+  Format-Table
+```
+
+A normal user sees only their own tickets. An `ADMIN` or `AGENT` sees all tickets in the tenant and can advance the workflow:
+
+```powershell
+$ticketId = $tickets.data[0].id
+$statusBody = @{ status = "IN_PROGRESS" } | ConvertTo-Json
+
+Invoke-RestMethod -Method Patch `
+  -Uri "http://localhost:8080/api/v1/tickets/$ticketId/status" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $statusBody
+```
+
+The normal workflow is `OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED`. A resolved ticket can be reopened to `IN_PROGRESS`; a closed ticket is terminal.
+
+Ticket SLA metrics are available to `ADMIN` and `AGENT` users:
+
+```powershell
+$ticketMetrics = Invoke-RestMethod `
+  -Uri http://localhost:8080/api/v1/tickets/metrics `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$ticketMetrics.data | Format-List
+```
+
+The response contains counts by status, the number of urgent tickets that are not yet resolved or closed, and the average resolution time in hours. Average resolution time only includes tickets with a non-null `resolvedAt`, and all metrics are scoped to the current tenant.
+
+## Answer Feedback
+
+Find the latest assistant message in a conversation:
+
+```powershell
+$messages = Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages?limit=50" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$assistantMessage = $messages.data.items |
+  Where-Object { $_.role -eq "ASSISTANT" } |
+  Select-Object -Last 1
+
+$messageId = $assistantMessage.id
+$messageId
+```
+
+Create or update the current user's rating. Repeating `PUT` updates the same feedback row instead of inserting a duplicate:
+
+```powershell
+$feedback = @{
+  rating = "HELPFUL"
+  comment = "答案准确，并且给出了知识库引用"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Method Put `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages/$messageId/feedback" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json; charset=utf-8" `
+  -Body ([Text.Encoding]::UTF8.GetBytes($feedback))
+```
+
+Allowed ratings are `HELPFUL` and `NOT_HELPFUL`. The optional comment is limited to 500 characters. Only assistant messages in conversations owned by the authenticated user can be rated.
+
+Read or delete the current user's rating:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages/$messageId/feedback" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+Invoke-RestMethod -Method Delete `
+  -Uri "http://localhost:8080/api/v1/conversations/$conversationId/messages/$messageId/feedback" `
+  -Headers @{ Authorization = "Bearer $token" }
+```
+
+An `ADMIN` can read tenant-scoped quality metrics:
+
+```powershell
+$summary = Invoke-RestMethod `
+  -Uri http://localhost:8080/api/v1/feedback/summary `
+  -Headers @{ Authorization = "Bearer $token" }
+
+$summary.data | Format-List
+```
+
+The summary contains `totalCount`, `helpfulCount`, `notHelpfulCount`, and `helpfulRate`. A normal `USER` receives HTTP `403` from this endpoint.
 
 ## Real LLM Provider
 
@@ -212,6 +387,20 @@ Invoke-RestMethod -Method Post `
 ```
 
 Policy questions are routed to the Agent tool `searchKnowledge` and retrieved chunks are included in the model context.
+
+Upload a `txt`, `md`, `pdf`, or `docx` file (maximum 10 MB):
+
+```powershell
+$filePath = "C:\path\to\refund-policy.pdf"
+
+curl.exe -X POST "http://localhost:8080/api/v1/knowledge/documents/upload/async" `
+  -H "Authorization: Bearer $token" `
+  -F "title=Refund Policy" `
+  -F "sourceUri=internal://policy/refund-pdf" `
+  -F "file=@$filePath"
+```
+
+Apache Tika detects the real file type, then PDFBox or Apache POI extracts PDF/DOCX text before the existing chunking and embedding pipeline runs. The extension and detected content type must match.
 
 ## Real Embedding Model
 

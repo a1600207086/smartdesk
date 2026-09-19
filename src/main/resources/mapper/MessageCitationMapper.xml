@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.smartdesk.conversation.MessageCitationMapper">
+
+    <resultMap id="messageCitationResultMap"
+               type="com.smartdesk.conversation.MessageCitationEntity">
+        <id property="id" column="id"/>
+        <result property="messageId" column="message_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="citationIndex" column="citation_order"/>
+        <result property="documentId" column="document_id"/>
+        <result property="documentTitle" column="document_title"/>
+        <result property="chunkId" column="chunk_id"/>
+        <result property="chunkIndex" column="chunk_index"/>
+        <result property="score" column="score"/>
+        <result property="snippet" column="snippet"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insertBatch">
+        INSERT INTO message_citation (
+            message_id,
+            tenant_id,
+            citation_order,
+            document_id,
+            document_title,
+            chunk_id,
+            chunk_index,
+            score,
+            snippet,
+            created_at
+        )
+        VALUES
+        <foreach collection="citations" item="citation" separator=",">
+            (
+                #{messageId},
+                #{tenantId},
+                #{citation.index},
+                #{citation.documentId},
+                #{citation.documentTitle},
+                #{citation.chunkId},
+                #{citation.chunkIndex},
+                #{citation.score},
+                #{citation.snippet},
+                #{createdAt}
+            )
+        </foreach>
+    </insert>
+
+    <select id="findByMessageIds" resultMap="messageCitationResultMap">
+        SELECT
+            id,
+            message_id,
+            tenant_id,
+            citation_order,
+            document_id,
+            document_title,
+            chunk_id,
+            chunk_index,
+            score,
+            snippet,
+            created_at
+        FROM message_citation
+        WHERE tenant_id = #{tenantId}
+          AND message_id IN
+        <foreach collection="messageIds" item="messageId" open="(" separator="," close=")">
+            #{messageId}
+        </foreach>
+        ORDER BY message_id, citation_order
+    </select>
+
+</mapper>

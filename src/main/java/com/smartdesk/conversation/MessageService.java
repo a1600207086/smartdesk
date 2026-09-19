@@ -1,19 +1,23 @@
 package com.smartdesk.conversation;
 
 import com.smartdesk.auth.AuthenticatedUser;
+import com.smartdesk.knowledge.KnowledgeCitation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class MessageService {
 
     private final MessageMapper messageMapper;
     private final ConversationMapper conversationMapper;
+    private final MessageCitationMapper citationMapper;
     private final ConversationService conversationService;
     private final ConversationMemoryService memoryService;
     private final ConversationProperties properties;
@@ -21,12 +25,14 @@ public class MessageService {
     public MessageService(
             MessageMapper messageMapper,
             ConversationMapper conversationMapper,
+            MessageCitationMapper citationMapper,
             ConversationService conversationService,
             ConversationMemoryService memoryService,
             ConversationProperties properties
     ) {
         this.messageMapper = messageMapper;
         this.conversationMapper = conversationMapper;
+        this.citationMapper = citationMapper;
         this.conversationService = conversationService;
         this.memoryService = memoryService;
         this.properties = properties;
@@ -39,7 +45,13 @@ public class MessageService {
             CreateUserMessageRequest request
     ) {
         conversationService.requireOwnedConversation(conversationId, user);
-        return appendMessage(conversationId, MessageRole.USER, request.content().trim());
+        return appendMessage(
+                conversationId,
+                user.tenantId(),
+                MessageRole.USER,
+                request.content().trim(),
+                List.of()
+        );
     }
 
     @Transactional
@@ -48,8 +60,24 @@ public class MessageService {
             AuthenticatedUser user,
             String content
     ) {
+        return appendAssistantMessage(conversationId, user, content, List.of());
+    }
+
+    @Transactional
+    public MessageResponse appendAssistantMessage(
+            Long conversationId,
+            AuthenticatedUser user,
+            String content,
+            List<KnowledgeCitation> citations
+    ) {
         conversationService.requireOwnedConversation(conversationId, user);
-        return appendMessage(conversationId, MessageRole.ASSISTANT, content);
+        return appendMessage(
+                conversationId,
+                user.tenantId(),
+                MessageRole.ASSISTANT,
+                content,
+                citations
+        );
     }
 
     @Transactional(readOnly = true)
@@ -76,9 +104,7 @@ public class MessageService {
         }
 
         Collections.reverse(rows);
-        List<MessageResponse> items = rows.stream()
-                .map(MessageResponse::from)
-                .toList();
+        List<MessageResponse> items = attachCitations(rows, user.tenantId());
 
         if (beforeId == null) {
             memoryService.replaceRecent(conversationId, items);
@@ -90,8 +116,10 @@ public class MessageService {
 
     private MessageResponse appendMessage(
             Long conversationId,
+            Long tenantId,
             MessageRole role,
-            String content
+            String content,
+            List<KnowledgeCitation> citations
     ) {
         LocalDateTime now = LocalDateTime.now();
         MessageEntity message = new MessageEntity();
@@ -101,11 +129,37 @@ public class MessageService {
         message.setCreatedAt(now);
 
         messageMapper.insert(message);
+        if (citations != null && !citations.isEmpty()) {
+            citationMapper.insertBatch(message.getId(), tenantId, citations, now);
+        }
         conversationMapper.touchUpdatedAt(conversationId, now);
 
-        MessageResponse response = MessageResponse.from(message);
+        MessageResponse response = MessageResponse.from(message, citations);
         memoryService.append(conversationId, response);
         return response;
+    }
+
+    private List<MessageResponse> attachCitations(
+            List<MessageEntity> messages,
+            Long tenantId
+    ) {
+        if (messages.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> messageIds = messages.stream().map(MessageEntity::getId).toList();
+        Map<Long, List<KnowledgeCitation>> citationsByMessage = new HashMap<>();
+        for (MessageCitationEntity citation : citationMapper.findByMessageIds(tenantId, messageIds)) {
+            citationsByMessage.computeIfAbsent(citation.getMessageId(), ignored -> new ArrayList<>())
+                    .add(citation.toCitation());
+        }
+
+        return messages.stream()
+                .map(message -> MessageResponse.from(
+                        message,
+                        citationsByMessage.getOrDefault(message.getId(), List.of())
+                ))
+                .toList();
     }
 
     private MessagePageResponse fromCache(List<MessageResponse> cached, int limit) {

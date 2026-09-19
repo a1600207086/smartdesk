@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartdesk.auth.LoginAttemptGuard;
 import com.smartdesk.auth.TokenBlacklistService;
 import com.smartdesk.conversation.ConversationMemoryService;
+import com.smartdesk.knowledge.KnowledgeRetrievalService;
+import com.smartdesk.knowledge.KnowledgeSearchResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -59,6 +63,9 @@ class AgentChatApiTests {
 
     @MockBean
     private ConversationMemoryService conversationMemoryService;
+
+    @MockBean
+    private KnowledgeRetrievalService knowledgeRetrievalService;
 
     @BeforeEach
     void setUpConversationMemory() {
@@ -112,6 +119,51 @@ class AgentChatApiTests {
         );
         assertThat(runCount).isNotNull().isGreaterThan(0);
         assertThat(toolCount).isNotNull().isGreaterThan(0);
+    }
+
+    @Test
+    void shouldStreamConciseKnowledgeAnswerWithCitations() throws Exception {
+        ensureTenant("agentco");
+        String token = registerAndLogin("agentco", "knowledgeuser");
+        long conversationId = createConversation(token, "Knowledge chat");
+        String question = "银行卡退款需要几个工作日到账？";
+        when(knowledgeRetrievalService.search(anyLong(), anyString(), nullable(Integer.class)))
+                .thenReturn(List.of(new KnowledgeSearchResult(
+                        5L,
+                        "Refund Policy Demo",
+                        6L,
+                        0,
+                        "支付宝或微信到账：商家发起退款后 1 至 3 个工作日。\n"
+                                + "银行卡到账：商家发起退款后 3 至 7 个工作日，具体以发卡银行为准。",
+                        0.5583
+                )));
+
+        String stream = chat(token, conversationId, question);
+
+        assertThat(stream).contains("event:citation");
+        assertThat(stream).contains("\"documentId\":5");
+        assertThat(stream).contains("\"documentTitle\":\"Refund Policy Demo\"");
+        assertThat(stream).contains("\"matchCount\":1");
+        assertThat(stream).contains("银行卡到账：商家发起退款后 3 至 7 个工作日");
+        assertThat(stream).contains("来源：[1] Refund Policy Demo");
+        assertThat(stream).doesNotContain("KnowledgeSearchResult[");
+
+        Integer citationCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM message_citation WHERE document_id = 5",
+                Integer.class
+        );
+        assertThat(citationCount).isEqualTo(1);
+
+        mockMvc.perform(get("/api/v1/conversations/{id}/messages", conversationId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[1].role").value("ASSISTANT"))
+                .andExpect(jsonPath("$.data.items[1].citations.length()").value(1))
+                .andExpect(jsonPath("$.data.items[1].citations[0].index").value(1))
+                .andExpect(jsonPath("$.data.items[1].citations[0].documentId").value(5))
+                .andExpect(jsonPath("$.data.items[1].citations[0].documentTitle")
+                        .value("Refund Policy Demo"))
+                .andExpect(jsonPath("$.data.items[1].citations[0].chunkId").value(6));
     }
 
     private void ensureTenant(String tenantCode) throws Exception {

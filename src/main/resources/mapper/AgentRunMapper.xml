@@ -34,4 +34,53 @@
         WHERE id = #{id}
     </update>
 
+    <resultMap id="agentRunResultMap" type="com.smartdesk.agent.AgentRunEntity">
+        <id property="id" column="id"/>
+        <result property="conversationId" column="conversation_id"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="inputMessageId" column="input_message_id"/>
+        <result property="route" column="route"/>
+        <result property="status" column="status"/>
+        <result property="errorMessage" column="error_message"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="finishedAt" column="finished_at"/>
+    </resultMap>
+
+    <select id="findAllByConversationId" resultMap="agentRunResultMap">
+        SELECT id, conversation_id, tenant_id, user_id, input_message_id,
+               route, status, error_message, started_at, finished_at
+        FROM agent_run
+        WHERE conversation_id = #{conversationId}
+        ORDER BY started_at DESC, id DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByIdAndConversationId" resultMap="agentRunResultMap">
+        SELECT id, conversation_id, tenant_id, user_id, input_message_id,
+               route, status, error_message, started_at, finished_at
+        FROM agent_run
+        WHERE id = #{id}
+          AND conversation_id = #{conversationId}
+    </select>
+
+    <select id="summarizeByTenantId" resultType="com.smartdesk.agent.AgentMetricsRow">
+        SELECT
+            (SELECT COUNT(*) FROM agent_run WHERE tenant_id = #{tenantId}) AS total_runs,
+            (SELECT COUNT(*) FROM agent_run WHERE tenant_id = #{tenantId} AND status = 'COMPLETED') AS completed_runs,
+            (SELECT COUNT(*) FROM agent_run WHERE tenant_id = #{tenantId} AND status = 'FAILED') AS failed_runs,
+            (SELECT COUNT(*)
+             FROM tool_call_log log
+             JOIN agent_run ar ON ar.id = log.agent_run_id
+             WHERE ar.tenant_id = #{tenantId}) AS total_tool_calls,
+            (SELECT COUNT(*)
+             FROM tool_call_log log
+             JOIN agent_run ar ON ar.id = log.agent_run_id
+             WHERE ar.tenant_id = #{tenantId} AND log.success = TRUE) AS successful_tool_calls,
+            COALESCE((SELECT AVG(log.duration_ms)
+                      FROM tool_call_log log
+                      JOIN agent_run ar ON ar.id = log.agent_run_id
+                      WHERE ar.tenant_id = #{tenantId}), 0) AS average_tool_duration_ms
+    </select>
+
 </mapper>

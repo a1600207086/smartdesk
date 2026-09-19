@@ -12,6 +12,8 @@ public record KnowledgeProperties(
         int defaultTopK,
         int maxTopK,
         double minScore,
-        Duration cacheTtl
+        Duration cacheTtl,
+        long maxUploadBytes,
+        int maxExtractedChars
 ) {
 }
