@@ -30,6 +30,14 @@
 
     <section id="workspace" class="workspace hidden">
       <aside class="sidebar">
+        <div class="card conversation-panel">
+          <div class="conversation-heading"><h3>会话</h3><span class="badge">HISTORY</span></div>
+          <form id="newConversationForm" class="conversation-create">
+            <input id="newConversationTitle" maxlength="255" placeholder="新会话标题" aria-label="新会话标题">
+            <button title="创建会话" aria-label="创建会话">+</button>
+          </form>
+          <div id="conversationList" class="conversation-list"><span class="muted">正在加载...</span></div>
+        </div>
         <div class="card stat-card"><span class="muted">工单总数</span><strong id="totalCount">-</strong><small id="urgentCount">高优先级未关闭：-</small></div>
         <div class="card stat-card"><span class="muted">平均解决时长</span><strong id="avgHours">-</strong><small>小时</small></div>
         <div class="card"><h3>工单状态</h3><div id="ticketStats" class="stats-list"></div></div>
