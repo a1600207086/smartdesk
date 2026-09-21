@@ -6,6 +6,7 @@
   <title>SmartDesk Agent Console</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/knowledge.css">
+  <link rel="stylesheet" href="/observability.css">
 </head>
 <body>
   <main class="shell">
@@ -64,6 +65,22 @@
           <div class="knowledge-results">
             <section><h3>文档状态</h3><div id="documents" class="document-list"><span class="muted">登录后加载文档</span></div></section>
             <section><h3>检索结果</h3><div id="searchResults" class="search-results"><span class="muted">尚未检索</span></div></section>
+          </div>
+        </div>
+        <div class="card observability-card">
+          <div class="section-title">
+            <div><span class="eyebrow">AGENT OBSERVABILITY</span><h2>执行轨迹</h2></div>
+            <button id="refreshRunsButton" class="compact secondary">刷新轨迹</button>
+          </div>
+          <div id="agentMetrics" class="metric-strip">
+            <div><span>运行总数</span><strong>-</strong></div>
+            <div><span>完成率</span><strong>-</strong></div>
+            <div><span>工具调用</span><strong>-</strong></div>
+            <div><span>工具成功率</span><strong>-</strong></div>
+          </div>
+          <div class="trace-grid">
+            <section><h3>当前对话运行记录</h3><div id="agentRuns" class="run-list"><span class="muted">发送消息后生成执行轨迹</span></div></section>
+            <section><h3>工具调用详情</h3><div id="runDetail" class="run-detail"><span class="muted">选择左侧运行记录查看详情</span></div></section>
           </div>
         </div>
       </section>
