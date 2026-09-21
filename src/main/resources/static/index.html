@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/knowledge.css">
   <link rel="stylesheet" href="/observability.css">
+  <link rel="stylesheet" href="/tickets.css">
 </head>
 <body>
   <main class="shell">
@@ -40,7 +41,7 @@
           <form id="chatForm" class="chat-form"><textarea id="chatInput" placeholder="例如：订单号 A10001 什么时候到？" required></textarea><button>发送消息</button></form>
         </div>
         <div class="lower-grid">
-          <div class="card"><h3>最近工单</h3><div id="tickets" class="tickets"><span class="muted">暂无数据</span></div></div>
+          <div class="card ticket-panel"><div class="section-title"><h3>工单队列</h3><span class="badge">WORKFLOW</span></div><div id="tickets" class="tickets"><span class="muted">暂无数据</span></div></div>
           <div class="card"><h3>系统说明</h3><p class="muted">本页面直接调用 Spring Boot API，Agent 通过 SSE 返回 route、tool、citation、message 和 done 事件。</p><div id="activity" class="activity">等待 Agent 执行...</div></div>
         </div>
         <div class="card knowledge-card">
