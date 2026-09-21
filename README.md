@@ -448,6 +448,22 @@ Invoke-RestMethod -Method Delete `
 
 ## Async Knowledge Processing
 
+## OpenAPI Documentation
+
+After starting the application, open the interactive API documentation:
+
+```text
+http://localhost:8080/swagger-ui.html
+```
+
+The OpenAPI JSON is available at:
+
+```text
+http://localhost:8080/v3/api-docs
+```
+
+Click `Authorize` in Swagger UI and enter the JWT returned by the login API with the `Bearer ` prefix. Public endpoints such as login and health checks can be tested without a token; protected endpoints use the configured JWT security scheme.
+
 Upload asynchronously:
 
 ```powershell

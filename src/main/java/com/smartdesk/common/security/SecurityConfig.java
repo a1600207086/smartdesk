@@ -54,7 +54,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/", "/index.html", "/app.css", "/knowledge.css",
                                 "/observability.css", "/tickets.css", "/feedback.css",
-                                "/conversation.css", "/app.js", "/favicon.ico")
+                                "/conversation.css", "/app.js", "/favicon.ico",
+                                "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**")
                         .permitAll()
                         .requestMatchers("/api/v1/tenants/**")
                         .hasRole("ADMIN")
