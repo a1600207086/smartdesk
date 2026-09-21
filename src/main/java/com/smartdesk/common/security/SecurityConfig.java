@@ -54,7 +54,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/", "/index.html", "/app.css", "/knowledge.css",
                                 "/observability.css", "/tickets.css", "/feedback.css",
-                                "/app.js", "/favicon.ico")
+                                "/conversation.css", "/app.js", "/favicon.ico")
                         .permitAll()
                         .requestMatchers("/api/v1/tenants/**")
                         .hasRole("ADMIN")

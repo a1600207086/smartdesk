@@ -1,0 +1,38 @@
+.citations {
+  display: grid;
+  gap: 7px;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid #dfe4ec;
+}
+
+.citations > span {
+  color: #748198;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.citation {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-left: 3px solid #7e8dff;
+  color: #536079;
+  background: #fafbff;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.citation b {
+  color: #344158;
+}
+
+.citation small {
+  color: #748198;
+}
+
+.history-status {
+  align-self: center;
+  color: #748198;
+  font-size: 12px;
+}
