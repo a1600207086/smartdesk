@@ -52,7 +52,7 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/system/ping", "/actuator/health", "/error")
                         .permitAll()
-                        .requestMatchers("/", "/index.html", "/app.css", "/app.js", "/favicon.ico")
+                        .requestMatchers("/", "/index.html", "/app.css", "/knowledge.css", "/app.js", "/favicon.ico")
                         .permitAll()
                         .requestMatchers("/api/v1/tenants/**")
                         .hasRole("ADMIN")

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SmartDesk Agent Console</title>
   <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/knowledge.css">
 </head>
 <body>
   <main class="shell">
@@ -40,6 +41,30 @@
         <div class="lower-grid">
           <div class="card"><h3>最近工单</h3><div id="tickets" class="tickets"><span class="muted">暂无数据</span></div></div>
           <div class="card"><h3>系统说明</h3><p class="muted">本页面直接调用 Spring Boot API，Agent 通过 SSE 返回 route、tool、citation、message 和 done 事件。</p><div id="activity" class="activity">等待 Agent 执行...</div></div>
+        </div>
+        <div class="card knowledge-card">
+          <div class="section-title">
+            <div><span class="eyebrow">RAG KNOWLEDGE BASE</span><h2>知识库管理</h2></div>
+            <button id="refreshKnowledgeButton" class="compact secondary">刷新文档</button>
+          </div>
+          <div class="knowledge-grid">
+            <form id="uploadForm" class="tool-panel">
+              <h3>导入文档</h3>
+              <label>文档标题<input id="documentTitle" placeholder="例如：退款政策 V2" required></label>
+              <label>选择文件<input id="documentFile" type="file" accept=".txt,.md,.pdf,.docx" required></label>
+              <button>异步上传并建立索引</button>
+              <p class="muted file-note">支持 TXT、Markdown、PDF、DOCX，最大 10 MB。</p>
+            </form>
+            <form id="searchForm" class="tool-panel">
+              <h3>相似度检索</h3>
+              <label>检索问题<textarea id="searchQuery" placeholder="例如：银行卡退款多久到账？" required></textarea></label>
+              <div class="search-actions"><label>返回数量<input id="searchTopK" type="number" min="1" max="20" value="3"></label><button>检索知识库</button></div>
+            </form>
+          </div>
+          <div class="knowledge-results">
+            <section><h3>文档状态</h3><div id="documents" class="document-list"><span class="muted">登录后加载文档</span></div></section>
+            <section><h3>检索结果</h3><div id="searchResults" class="search-results"><span class="muted">尚未检索</span></div></section>
+          </div>
         </div>
       </section>
     </section>
