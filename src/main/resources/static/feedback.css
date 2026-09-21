@@ -1,0 +1,37 @@
+.feedback-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid #dfe4ec;
+}
+
+.feedback-actions span {
+  margin-right: auto;
+  color: #748198;
+  font-size: 11px;
+}
+
+.feedback-actions button {
+  padding: 6px 9px;
+  border: 1px solid #d6dce7;
+  border-radius: 6px;
+  color: #536079;
+  background: #fff;
+  font-size: 11px;
+}
+
+.feedback-actions button:hover,
+.feedback-actions button.active {
+  color: #465cf5;
+  border-color: #8e9aff;
+  background: #eef0ff;
+  filter: none;
+}
+
+.feedback-actions button.negative.active {
+  color: #b33b3b;
+  border-color: #e5a4a4;
+  background: #fff0f0;
+}

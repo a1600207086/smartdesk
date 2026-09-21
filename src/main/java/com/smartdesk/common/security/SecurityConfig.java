@@ -53,7 +53,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/system/ping", "/actuator/health", "/error")
                         .permitAll()
                         .requestMatchers("/", "/index.html", "/app.css", "/knowledge.css",
-                                "/observability.css", "/tickets.css", "/app.js", "/favicon.ico")
+                                "/observability.css", "/tickets.css", "/feedback.css",
+                                "/app.js", "/favicon.ico")
                         .permitAll()
                         .requestMatchers("/api/v1/tenants/**")
                         .hasRole("ADMIN")
