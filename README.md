@@ -3,6 +3,26 @@
 SmartDesk 是一个面向电商售后场景的智能体应用平台，基于 Java 和 Spring Boot 开发，支持 Agent 路由、工具调用、RAG 知识库问答、SSE 流式对话、人工工单和运行监控。
 
 项目主要用于展示 Java 后端、智能体开发、RAG 和系统工程化能力。
+
+## 项目体验
+
+- 本地控制台：[打开 SmartDesk](http://localhost:8080/)
+- API 健康检查：[查看服务状态](http://localhost:8080/actuator/health)
+- API 文档：[打开 Swagger UI](http://localhost:8080/swagger-ui.html)
+- OpenAPI JSON：[查看接口定义](http://localhost:8080/v3/api-docs)
+
+以上链接需要先在本地启动项目。部署到云服务器后，将链接中的
+`http://localhost:8080` 替换为公网访问地址即可作为在线演示入口。
+
+## 核心能力
+
+- Agent 路由：根据订单、政策咨询和转人工意图选择对应工具。
+- 工具调用：支持订单查询、知识库检索和人工客服工单。
+- RAG 知识库：支持文档解析、分块、Embedding、相似度检索和回答引用。
+- 流式对话：基于 SSE 返回 `route`、`tool`、`citation`、`message` 和 `done` 事件。
+- 可视化控制台：支持登录、会话管理、知识库管理、Agent 运行轨迹、工单和评价指标。
+- 工程化能力：支持 MySQL、Redis、Flyway、Docker Compose 和 OpenAPI 文档。
+
 ## 运行测试
 
 ```powershell
