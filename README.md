@@ -16,12 +16,44 @@ SmartDesk 是一个面向电商售后场景的智能体应用平台，基于 Jav
 
 ## 核心能力
 
-- Agent 路由：根据订单、政策咨询和转人工意图选择对应工具。
-- 工具调用：支持订单查询、知识库检索和人工客服工单。
-- RAG 知识库：支持文档解析、分块、Embedding、相似度检索和回答引用。
-- 流式对话：基于 SSE 返回 `route`、`tool`、`citation`、`message` 和 `done` 事件。
-- 可视化控制台：支持登录、会话管理、知识库管理、Agent 运行轨迹、工单和评价指标。
-- 工程化能力：支持 MySQL、Redis、Flyway、Docker Compose 和 OpenAPI 文档。
+- JWT 登录认证与多租户数据隔离，使用 BCrypt 保存密码摘要。
+- Redis 登录失败限流、JWT Token 黑名单和会话近期记忆缓存。
+- Agent 路由与工具调用，根据订单、政策咨询和转人工意图选择对应工具。
+- 支持订单查询、知识库检索和人工客服工单等 Agent 工具。
+- 支持 Mock Agent 与 OpenAI 兼容大模型按配置切换，无 API Key 也能运行演示。
+- 支持 TXT、Markdown、PDF、DOCX 文档上传、解析和异步处理。
+- 实现文档分块、Embedding、余弦相似度检索、关键词重排和回答引用。
+- 基于 SSE 实现流式 Agent 对话，返回 `route`、`tool`、`citation`、`message` 和 `done` 事件。
+- 持久化 Agent Run 和工具调用轨迹，记录参数、结果、耗时、状态和错误信息。
+- 人工工单状态机：`OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED`，支持 SLA 统计。
+- 支持回答评价、知识库管理、Agent 执行轨迹和多会话可视化控制台。
+- 使用 MySQL 持久化业务数据，MyBatis 实现数据访问，Flyway 管理数据库迁移。
+- 提供 Docker Compose 一键启动、Swagger/OpenAPI 接口文档和自动化测试。
+
+## 技术架构
+
+```text
+Web 控制台 / REST API / SSE
+            |
+      Spring Boot 3
+            |
+  Agent 编排器 AgentOrchestrator
+       /          |          \
+   路由器       工具注册表      ChatModel
+     |        /    |    \\       |
+  订单查询  RAG检索  转人工    Mock / OpenAI兼容模型
+     |        |       |
+  MySQL   Embedding  工单状态机
+     |        |
+   Redis 缓存、限流、Token 黑名单、近期记忆
+```
+
+## 项目难点
+
+- 如何保证多租户隔离：所有业务查询从 JWT 身份中获取 `tenantId`，服务层同时校验资源归属。
+- 如何实现 RAG：文档解析后分块并向量化，检索高相关文本块，再通过引用约束回答来源。
+- 如何实现可观测 Agent：为每次运行和工具调用记录路由、参数、结果、耗时和最终状态。
+- 如何保证异步文档处理：先返回 `PROCESSING`，由后台线程完成解析、Embedding 和索引写入，失败后支持重试。
 
 ## 运行测试
 
