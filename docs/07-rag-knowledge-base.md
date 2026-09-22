@@ -1,8 +1,8 @@
-# 07 - RAG Knowledge Base
+# 07 - RAG 知识库
 
-## Goal
+## 目标
 
-Provide tenant-isolated document ingestion and retrieval for the Agent.
+为 Agent 提供按租户隔离的文档导入和检索能力。
 
 ```text
 text or txt/markdown file
@@ -16,9 +16,9 @@ text or txt/markdown file
   -> Agent tool searchKnowledge
 ```
 
-## Current implementation
+## 当前实现
 
-The first version uses `HashEmbeddingModel`:
+第一版使用 `HashEmbeddingModel`：
 
 - lowercase normalization
 - English word tokens
@@ -26,20 +26,20 @@ The first version uses `HashEmbeddingModel`:
 - signed hashing into a fixed-dimension vector
 - L2 normalization
 
-This is deterministic and requires no external API key. It is not as semantically strong as a real embedding model, but it exercises the complete RAG pipeline.
+该方案是确定性的，不需要外部 API Key。语义能力不如真实 Embedding 模型，但可以完整验证 RAG 流程。
 
-The retrieval stage currently loads the tenant's chunks and computes cosine similarity in Java. This is acceptable for a learning project and small datasets. A production version should replace it with a vector database such as Qdrant or Milvus.
+检索阶段目前加载租户的文本块，并在 Java 中计算余弦相似度。这适合学习项目和小规模数据，生产版本应替换为 Qdrant 或 Milvus 等向量数据库。
 
-## Tables
+## 数据表
 
 Migration `V4__create_knowledge_base_tables.sql` creates:
 
 - `knowledge_document`
 - `knowledge_chunk`
 
-Chunks store text and `embedding_json`. A unique `(tenant_id, checksum)` constraint prevents duplicate documents in the same tenant.
+文本块保存正文和 `embedding_json`。唯一约束 `(tenant_id, checksum)` 用于防止同一租户重复上传文档。
 
-## Redis cache
+## Redis 缓存
 
 Search cache keys include a tenant-specific version:
 
@@ -47,9 +47,9 @@ Search cache keys include a tenant-specific version:
 smartdesk:knowledge:search:{tenantId}:{version}:{topK}:{queryHash}
 ```
 
-When a document is uploaded, the tenant version is incremented, so old search results are automatically bypassed.
+上传文档时会递增租户版本号，因此旧的搜索结果会自动失效。
 
-## Agent integration
+## Agent 集成
 
 `KnowledgeSearchTool` is registered as:
 
@@ -57,17 +57,17 @@ When a document is uploaded, the tenant version is incremented, so old search re
 searchKnowledge
 ```
 
-The router sends policy and knowledge-style questions to this tool. The result contains matched chunks and citation metadata.
+路由器会将政策类和知识类问题发送给该工具，结果包含匹配文本块和引用元数据。
 
-The response from the model should cite the matching document and chunk instead of inventing policy details.
+模型回答应该引用匹配的文档和文本块，而不是自行编造政策细节。
 
-## Current parser support
+## 当前解析器支持
 
-The upload endpoint currently supports:
+当前上传接口支持：
 
 - `.txt`
 - `.md`
 - `.markdown`
 - `text/*` content types
 
-Apache Tika or PDF/DOCX parsing can be added later behind the same document service boundary.
+后续可以在同一文档服务边界后接入 Apache Tika 或 PDF/DOCX 解析。

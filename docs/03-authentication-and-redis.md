@@ -1,6 +1,6 @@
-# 03 - Authentication and Redis
+# 03 - 认证与 Redis
 
-## Authentication flow
+## 认证流程
 
 ```text
 Register
@@ -16,9 +16,9 @@ Login
   -> return Bearer token
 ```
 
-## Password storage
+## 密码存储
 
-Never store a plaintext password.
+绝不能保存明文密码。
 
 ```text
 Password123!
@@ -26,11 +26,11 @@ Password123!
   -> $2a$10$...
 ```
 
-BCrypt is deliberately slow because it includes a work factor. This makes offline password cracking more expensive.
+BCrypt 会通过工作因子降低计算速度，从而提高离线破解密码的成本。
 
-## JWT
+## JWT 令牌
 
-The JWT contains:
+JWT 包含以下声明：
 
 - `sub`: user ID
 - `tenantId`: tenant ID
@@ -40,9 +40,9 @@ The JWT contains:
 - `iat`: issued time
 - `exp`: expiration time
 
-JWT is signed, not encrypted. Do not put passwords or sensitive data in JWT claims.
+JWT 只有签名，并未加密。不要在 JWT 声明中放入密码或敏感数据。
 
-## Redis rate limiting
+## Redis 登录限流
 
 Failed logins increment:
 
@@ -50,15 +50,15 @@ Failed logins increment:
 smartdesk:auth:login-failure:{tenantCode}:{username}:{clientIp}
 ```
 
-The first failure sets a TTL. Five failures within ten minutes cause HTTP 429.
+第一次失败会设置 TTL，十分钟内失败五次会返回 HTTP 429。
 
-The read and increment operations are separate:
-- read checks whether the request is allowed;
-- a Lua script increments and sets TTL atomically after a failed login.
+读取和递增操作分开执行：
+- 读取操作检查当前请求是否允许继续；
+- 登录失败后由 Lua 脚本原子地递增计数并设置 TTL。
 
-## Token blacklist
+## Token 黑名单
 
-JWT is stateless, so logout cannot delete the token from the client only. The server stores the JWT `jti` in Redis until its original expiration time.
+JWT 是无状态令牌，仅由客户端删除 Token 无法真正实现退出登录。服务端会将 JWT 的 `jti` 保存到 Redis，直到令牌原本的过期时间。
 
 Every authenticated request checks:
 
@@ -69,22 +69,22 @@ Authorization: Bearer token
   -> create SecurityContext authentication
 ```
 
-## Startup dependency behavior
+## 启动依赖行为
 
-Redis is used for rate limiting and blacklist checks. The current implementation fails open when Redis is unavailable and logs a warning. Authentication and durable business data continue to work.
+Redis 用于登录限流和黑名单检查。当前实现中 Redis 不可用时会记录警告并降级放行，认证和持久化业务数据仍可继续工作。
 
-In production, decide explicitly whether each Redis dependency should fail open or fail closed.
+在生产环境中，应明确每个 Redis 依赖是采用故障放行还是故障拒绝。
 
-## Tenant bootstrap
+## 租户初始化
 
-A fresh database has no tenant and therefore no administrator. The bootstrap endpoint solves this onboarding problem:
+新数据库没有租户，也就没有管理员。初始化接口用于解决首次接入问题：
 
 ```text
 POST /api/v1/bootstrap/tenant
 ```
 
-It succeeds only when `tenant` contains zero rows. After the first tenant exists, additional tenants must be created by an authenticated administrator.
+只有 `tenant` 表为空时接口才会成功。第一个租户创建后，新增租户必须由已认证的管理员创建。
 
-The first user registered under a tenant receives `ADMIN`. Later users receive `USER`.
+租户下注册的第一个用户获得 `ADMIN` 角色，后续用户获得 `USER` 角色。
 
-Tenant administration endpoints require `ROLE_ADMIN`.
+租户管理接口要求具备 `ROLE_ADMIN` 权限。

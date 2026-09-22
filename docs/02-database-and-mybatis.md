@@ -1,10 +1,10 @@
-# 02 - MySQL, Flyway and MyBatis
+# 02 - MySQL、Flyway 与 MyBatis
 
-## Goal
+## 目标
 
-Add durable relational storage and expose the first real business API.
+增加持久化关系型存储，并实现第一个真实业务接口。
 
-## Database layers
+## 数据库分层
 
 ```text
 Controller
@@ -14,16 +14,16 @@ Controller
         -> MySQL
 ```
 
-## Why MySQL instead of Redis?
+## 为什么使用 MySQL 而不是 Redis？
 
-- MySQL is the source of truth for users, tenants, conversations, and messages.
-- Redis will later store short-lived data such as recent conversation memory, locks, and cache entries.
-- Losing Redis may reduce performance, but should not lose durable business records.
-- Losing MySQL means losing durable business records.
+- MySQL 是用户、租户、会话和消息的最终数据源。
+- Redis 用于保存会话近期记忆、锁和缓存等短生命周期数据。
+- Redis 故障可能降低性能，但不应导致持久化业务数据丢失。
+- MySQL 故障则意味着持久化业务数据不可用。
 
-## Flyway
+## Flyway 数据库迁移
 
-Flyway treats every SQL migration as an immutable version.
+Flyway 将每个 SQL 迁移文件视为不可变版本。
 
 ```text
 V1__create_core_tables.sql
@@ -31,7 +31,7 @@ V2__...
 V3__...
 ```
 
-After a migration has been applied to a shared environment, do not edit it. Add a new migration instead.
+迁移应用到共享环境后不要修改原文件，应新增迁移版本。
 
 ## Index example
 
@@ -40,8 +40,8 @@ CREATE INDEX idx_conversation_tenant_user_created
     ON conversation (tenant_id, user_id, created_at);
 ```
 
-The column order matters. A query filtering by `tenant_id` and `user_id` and sorting by `created_at` can use this composite index.
+列顺序很重要。按 `tenant_id`、`user_id` 过滤并按 `created_at` 排序的查询可以使用该联合索引。
 
-## Transaction
+## 事务
 
-`TenantService.create()` is transactional. The duplicate-code check and insert execute in one transaction. The unique constraint on `tenant.code` remains the final protection against race conditions.
+`TenantService.create()` 使用事务。重复编码检查和插入在同一事务中执行，`tenant.code` 的唯一约束则是防止并发竞争的最后一道保护。

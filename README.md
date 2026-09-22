@@ -3,48 +3,48 @@
 SmartDesk 是一个面向电商售后场景的智能体应用平台，基于 Java 和 Spring Boot 开发，支持 Agent 路由、工具调用、RAG 知识库问答、SSE 流式对话、人工工单和运行监控。
 
 项目主要用于展示 Java 后端、智能体开发、RAG 和系统工程化能力。
-## Run tests
+## 运行测试
 
 ```powershell
 .\mvnw.cmd test
 ```
 
-## Run with Docker Compose
+## 使用 Docker Compose 运行
 
-Docker Compose starts MySQL, Redis, and the SmartDesk application. The application
-uses the Mock Agent by default, so no LLM or Embedding API key is required.
+Docker Compose 会启动 MySQL、Redis 和 SmartDesk 应用。项目默认使用 Mock Agent，
+不需要配置大模型或 Embedding API Key。
 
 ```powershell
 docker compose up --build
 ```
 
-After startup, open:
+启动后访问：
 
 ```text
 http://localhost:8080/
 http://localhost:8080/swagger-ui.html
 ```
 
-To stop the services while keeping database data:
+停止服务但保留数据库数据：
 
 ```powershell
 docker compose down
 ```
 
-The default Compose passwords are for local development only. Set
-`SMARTDESK_DB_PASSWORD`, `MYSQL_ROOT_PASSWORD`, and `SMARTDESK_JWT_SECRET`
-before starting the stack when using a shared or deployed environment.
+Compose 中的默认密码仅用于本地开发。用于共享或部署环境时，请设置
+`SMARTDESK_DB_PASSWORD`、`MYSQL_ROOT_PASSWORD` 和 `SMARTDESK_JWT_SECRET`
+后再启动服务。
 
-## Start Redis
+## 启动 Redis
 
-The Windows Redis service is installed as `Redis`:
+Windows Redis 服务名称为 `Redis`：
 
 ```powershell
 Start-Service Redis
 Get-Service Redis
 ```
 
-## Configure services
+## 配置服务
 
 ```powershell
 $env:SMARTDESK_DB_URL="jdbc:mysql://localhost:3306/smartdesk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
@@ -55,21 +55,21 @@ $env:SMARTDESK_JWT_SECRET="replace-with-a-random-secret-at-least-32-bytes-long"
 .\mvnw.cmd spring-boot:run
 ```
 
-## Authentication API
+## 认证接口
 
-Bootstrap the first tenant. This endpoint is allowed only while the tenant table is empty:
+初始化第一个租户。只有租户表为空时才允许调用该接口：
 
 ```powershell
 $tenant = @{
   code = "acme"
-  name = "Acme After Sale"
+  name = "智能售后演示租户"
 } | ConvertTo-Json
 
 Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/bootstrap/tenant `
   -ContentType application/json -Body $tenant
 ```
 
-Register the first user. The first user in a tenant is assigned the `ADMIN` role:
+注册第一个用户。租户中的第一个用户会自动获得 `ADMIN` 角色：
 
 ```powershell
 $body = @{
@@ -83,7 +83,7 @@ Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/register `
   -ContentType application/json -Body $body
 ```
 
-Login:
+登录：
 
 ```powershell
 $login = @{
@@ -98,27 +98,27 @@ $response = Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/aut
 $token = $response.data.accessToken
 ```
 
-Read the current profile:
+查询当前用户信息：
 
 ```powershell
 Invoke-RestMethod -Uri http://localhost:8080/api/v1/auth/me `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-Logout:
+退出登录：
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/auth/logout `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-## Conversation API
+## 会话接口
 
-Create a conversation:
+创建会话：
 
 ```powershell
 $conversation = @{
-  title = "Order consultation"
+  title = "订单咨询"
 } | ConvertTo-Json
 
 $created = Invoke-RestMethod -Method Post `
@@ -130,11 +130,11 @@ $created = Invoke-RestMethod -Method Post `
 $conversationId = $created.data.id
 ```
 
-Append a user message:
+追加用户消息：
 
 ```powershell
 $message = @{
-  content = "Where is my order?"
+  content = "我的订单到哪里了？"
 } | ConvertTo-Json
 
 Invoke-RestMethod -Method Post `
@@ -144,7 +144,7 @@ Invoke-RestMethod -Method Post `
   -Body $message
 ```
 
-Read recent messages:
+查询最近消息：
 
 ```powershell
 Invoke-RestMethod `
@@ -152,11 +152,11 @@ Invoke-RestMethod `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-Assistant messages include a `citations` array. Knowledge citations are stored in MySQL and returned from both database-backed and Redis-cached conversation history. User messages and answers without knowledge sources return an empty array.
+助手消息包含 `citations` 数组。知识库引用会保存到 MySQL，并在从数据库读取或从 Redis 缓存读取会话历史时一并返回。用户消息以及没有知识来源的回答会返回空数组。
 
-## Agent SSE Chat
+## Agent SSE 对话
 
-Send a message to the Agent:
+向 Agent 发送消息：
 
 ```powershell
 $chat = @{
@@ -171,19 +171,19 @@ curl.exe -N -X POST `
   -d $chat
 ```
 
-The stream emits `start`, `route`, optional `tool` and `citation`, `message`, and `done` events.
-Knowledge citations include the document id, title, chunk id, chunk index, similarity score, and a short snippet. The completed `tool` event returns only the query and match count; the full tool result remains in `tool_call_log` for auditing.
+数据流会依次发送 `start`、`route`、可选的 `tool` 和 `citation`、`message` 以及 `done` 事件。
+知识库引用包含文档 ID、标题、分块 ID、分块序号、相似度分数和文本摘要。工具执行完成后的 `tool` 事件只返回查询条件和匹配数量，完整工具结果会保存在 `tool_call_log` 中用于审计。
 
 ```text
 event:citation
 data:{"citations":[{"index":1,"documentId":5,"documentTitle":"Refund Policy Demo","chunkId":6,"chunkIndex":0,"score":0.5583,"snippet":"..."}]}
 ```
 
-The current model is deterministic and does not require an API key. A real model provider can be added by implementing `AgentChatModel`.
+当前模型是确定性的 Mock 模型，不需要 API Key。实现 `AgentChatModel` 接口即可接入真实模型服务。
 
-## Agent Observability
+## Agent 可观测性
 
-List the latest Agent runs in a conversation. The default limit is 20 and the maximum is 100:
+查询会话中最近的 Agent 运行记录。默认返回 20 条，最多返回 100 条：
 
 ```powershell
 $runs = Invoke-RestMethod `
@@ -193,7 +193,7 @@ $runs = Invoke-RestMethod `
 $runs.data | Select-Object id, route, status, durationMs, startedAt | Format-Table
 ```
 
-Inspect one run and its structured tool arguments, result, success flag, and duration:
+查看某次运行记录，以及结构化的工具参数、结果、成功状态和耗时：
 
 ```powershell
 $runId = $runs.data[0].id
@@ -206,7 +206,7 @@ $run.data | Format-List
 $run.data.toolCalls | Format-List
 ```
 
-Only the owner of a conversation can read its traces. An `ADMIN` can inspect tenant-scoped execution metrics:
+只有会话所有者可以读取该会话的执行轨迹。`ADMIN` 可以查看当前租户范围内的执行指标：
 
 ```powershell
 $metrics = Invoke-RestMethod `
@@ -216,9 +216,9 @@ $metrics = Invoke-RestMethod `
 $metrics.data | Format-List
 ```
 
-The metrics contain run totals, completion rate, tool-call totals, tool success rate, and average tool duration. A normal `USER` receives HTTP `403` from this endpoint.
+指标包括运行总数、完成率、工具调用总数、工具成功率和平均工具耗时。普通 `USER` 访问该接口会收到 HTTP `403`。
 
-## Human Handoff Tickets
+## 人工客服工单
 
 Ask the Agent to create a human-support ticket:
 
@@ -241,9 +241,9 @@ $chatResponse = Invoke-WebRequest `
 $chatResponse.Content
 ```
 
-The router selects `createSupportTicket` before knowledge search. Repeated handoff requests in the same conversation reuse an existing `OPEN` or `IN_PROGRESS` ticket.
+路由器会优先选择 `createSupportTicket`，再考虑知识库检索。同一会话中重复请求转人工时，会复用已有的 `OPEN` 或 `IN_PROGRESS` 工单。
 
-List visible tickets:
+查询当前用户可见的工单：
 
 ```powershell
 $tickets = Invoke-RestMethod `
@@ -255,7 +255,7 @@ $tickets.data |
   Format-Table
 ```
 
-A normal user sees only their own tickets. An `ADMIN` or `AGENT` sees all tickets in the tenant and can advance the workflow:
+普通用户只能看到自己的工单。`ADMIN` 或 `AGENT` 可以看到当前租户的全部工单，并推进工单状态：
 
 ```powershell
 $ticketId = $tickets.data[0].id
@@ -268,9 +268,9 @@ Invoke-RestMethod -Method Patch `
   -Body $statusBody
 ```
 
-The normal workflow is `OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED`. A resolved ticket can be reopened to `IN_PROGRESS`; a closed ticket is terminal.
+正常状态流转为 `OPEN -> IN_PROGRESS -> RESOLVED -> CLOSED`。已解决的工单可以重新打开为 `IN_PROGRESS`，已关闭的工单不能再次流转。
 
-Ticket SLA metrics are available to `ADMIN` and `AGENT` users:
+`ADMIN` 和 `AGENT` 用户可以查看工单 SLA 指标：
 
 ```powershell
 $ticketMetrics = Invoke-RestMethod `
@@ -280,11 +280,11 @@ $ticketMetrics = Invoke-RestMethod `
 $ticketMetrics.data | Format-List
 ```
 
-The response contains counts by status, the number of urgent tickets that are not yet resolved or closed, and the average resolution time in hours. Average resolution time only includes tickets with a non-null `resolvedAt`, and all metrics are scoped to the current tenant.
+响应包含各状态工单数量、尚未解决或关闭的紧急工单数量，以及平均解决时长（小时）。平均解决时长只统计 `resolvedAt` 不为空的工单，所有指标都限定在当前租户范围内。
 
-## Answer Feedback
+## 回答评价
 
-Find the latest assistant message in a conversation:
+查询会话中最近的一条助手消息：
 
 ```powershell
 $messages = Invoke-RestMethod `
@@ -299,7 +299,7 @@ $messageId = $assistantMessage.id
 $messageId
 ```
 
-Create or update the current user's rating. Repeating `PUT` updates the same feedback row instead of inserting a duplicate:
+创建或更新当前用户的评价。重复执行 `PUT` 会更新同一条评价记录，而不会插入重复数据：
 
 ```powershell
 $feedback = @{
@@ -314,9 +314,9 @@ Invoke-RestMethod -Method Put `
   -Body ([Text.Encoding]::UTF8.GetBytes($feedback))
 ```
 
-Allowed ratings are `HELPFUL` and `NOT_HELPFUL`. The optional comment is limited to 500 characters. Only assistant messages in conversations owned by the authenticated user can be rated.
+允许的评价值为 `HELPFUL` 和 `NOT_HELPFUL`。可选评论最多 500 个字符。只有当前认证用户拥有的会话中的助手消息可以被评价。
 
-Read or delete the current user's rating:
+读取或删除当前用户的评价：
 
 ```powershell
 Invoke-RestMethod `
@@ -328,7 +328,7 @@ Invoke-RestMethod -Method Delete `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-An `ADMIN` can read tenant-scoped quality metrics:
+`ADMIN` 可以读取当前租户范围内的回答质量指标：
 
 ```powershell
 $summary = Invoke-RestMethod `
@@ -338,13 +338,13 @@ $summary = Invoke-RestMethod `
 $summary.data | Format-List
 ```
 
-The summary contains `totalCount`, `helpfulCount`, `notHelpfulCount`, and `helpfulRate`. A normal `USER` receives HTTP `403` from this endpoint.
+汇总结果包含 `totalCount`、`helpfulCount`、`notHelpfulCount` 和 `helpfulRate`。普通 `USER` 访问该接口会收到 HTTP `403`。
 
-## Real LLM Provider
+## 接入真实大模型
 
-The project defaults to `MockAgentChatModel`.
+项目默认使用 `MockAgentChatModel`。
 
-To enable an OpenAI-compatible provider:
+启用 OpenAI 兼容模型服务：
 
 ```powershell
 $env:SMARTDESK_LLM_ENABLED="true"
@@ -355,17 +355,17 @@ $env:SMARTDESK_LLM_API_KEY="your-api-key"
 .\mvnw.cmd spring-boot:run
 ```
 
-The provider calls:
+模型服务调用以下接口：
 
 ```text
 POST {baseUrl}/chat/completions
 ```
 
-and parses OpenAI-compatible streaming events. Set `SMARTDESK_LLM_ENABLED=false` or omit it to keep the Mock model.
+并解析 OpenAI 兼容的流式事件。设置 `SMARTDESK_LLM_ENABLED=false` 或不设置该变量，即可继续使用 Mock 模型。
 
-## Knowledge Base
+## 知识库
 
-Upload text as an authenticated ADMIN:
+使用已认证的 `ADMIN` 用户上传文本：
 
 ```powershell
 $document = @{
@@ -381,7 +381,7 @@ Invoke-RestMethod -Method Post `
   -Body ([Text.Encoding]::UTF8.GetBytes($document))
 ```
 
-Search:
+搜索知识库：
 
 ```powershell
 $search = @{
@@ -396,9 +396,9 @@ Invoke-RestMethod -Method Post `
   -Body ([Text.Encoding]::UTF8.GetBytes($search))
 ```
 
-Policy questions are routed to the Agent tool `searchKnowledge` and retrieved chunks are included in the model context.
+政策类问题会路由到 Agent 工具 `searchKnowledge`，检索到的文本块会加入模型上下文。
 
-Upload a `txt`, `md`, `pdf`, or `docx` file (maximum 10 MB):
+上传 `txt`、`md`、`pdf` 或 `docx` 文件（最大 10 MB）：
 
 ```powershell
 $filePath = "C:\path\to\refund-policy.pdf"
@@ -410,11 +410,11 @@ curl.exe -X POST "http://localhost:8080/api/v1/knowledge/documents/upload/async"
   -F "file=@$filePath"
 ```
 
-Apache Tika detects the real file type, then PDFBox or Apache POI extracts PDF/DOCX text before the existing chunking and embedding pipeline runs. The extension and detected content type must match.
+Apache Tika 会检测文件真实类型，然后由 PDFBox 或 Apache POI 提取 PDF/DOCX 文本，再进入现有的分块和向量化流程。文件扩展名必须与检测到的内容类型一致。
 
-## Real Embedding Model
+## 接入真实 Embedding 模型
 
-The knowledge base defaults to `HashEmbeddingModel`. To use a real OpenAI-compatible embedding endpoint:
+知识库默认使用 `HashEmbeddingModel`。使用真实的 OpenAI 兼容 Embedding 接口：
 
 ```powershell
 $env:SMARTDESK_EMBEDDING_ENABLED="true"
@@ -426,11 +426,11 @@ $env:SMARTDESK_EMBEDDING_DIMENSIONS="256"
 .\mvnw.cmd spring-boot:run
 ```
 
-Each document records its embedding model id. Existing Hash documents are ignored when a real embedding model is active; re-upload or reindex them after switching models.
+每个文档都会记录 Embedding 模型 ID。启用真实 Embedding 模型后，已有的 Hash 文档会被忽略；切换模型后请重新上传或执行重建索引。
 
-## Knowledge Document Management
+## 知识库文档管理
 
-List and inspect documents:
+查询和查看文档：
 
 ```powershell
 Invoke-RestMethod -Uri http://localhost:8080/api/v1/knowledge/documents `
@@ -440,7 +440,7 @@ Invoke-RestMethod -Uri http://localhost:8080/api/v1/knowledge/documents/1 `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-Reindex after switching embedding models:
+切换 Embedding 模型后重建索引：
 
 ```powershell
 Invoke-RestMethod -Method Post `
@@ -448,7 +448,7 @@ Invoke-RestMethod -Method Post `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-Delete a document:
+删除文档：
 
 ```powershell
 Invoke-RestMethod -Method Delete `
@@ -456,25 +456,25 @@ Invoke-RestMethod -Method Delete `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-## Async Knowledge Processing
+## 异步知识库处理
 
-## OpenAPI Documentation
+## OpenAPI 接口文档
 
-After starting the application, open the interactive API documentation:
+启动应用后，打开交互式 API 文档：
 
 ```text
 http://localhost:8080/swagger-ui.html
 ```
 
-The OpenAPI JSON is available at:
+OpenAPI JSON 地址：
 
 ```text
 http://localhost:8080/v3/api-docs
 ```
 
-Click `Authorize` in Swagger UI and enter the JWT returned by the login API with the `Bearer ` prefix. Public endpoints such as login and health checks can be tested without a token; protected endpoints use the configured JWT security scheme.
+在 Swagger UI 中点击 `Authorize`，输入登录接口返回的 JWT，并添加 `Bearer ` 前缀。登录和健康检查等公开接口无需 Token 即可测试，受保护接口使用已配置的 JWT 安全方案。
 
-Upload asynchronously:
+异步上传：
 
 ```powershell
 Invoke-RestMethod -Method Post `
@@ -484,20 +484,20 @@ Invoke-RestMethod -Method Post `
   -Body ([Text.Encoding]::UTF8.GetBytes($documentBody))
 ```
 
-The response returns `202 Accepted` and typically has:
+响应状态为 `202 Accepted`，通常包含：
 
 ```text
 status: PROCESSING
 ```
 
-Poll:
+轮询处理状态：
 
 ```powershell
 Invoke-RestMethod -Uri "http://localhost:8080/api/v1/knowledge/documents/$documentId" `
   -Headers @{ Authorization = "Bearer $token" }
 ```
 
-Retry a failed document:
+重试处理失败的文档：
 
 ```powershell
 Invoke-RestMethod -Method Post `

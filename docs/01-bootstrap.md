@@ -1,30 +1,30 @@
-# 01 - Bootstrap
+# 01 - 项目初始化
 
-## Goal
+## 目标
 
-Create the smallest runnable backend before adding MySQL, Redis, or an LLM.
+在接入 MySQL、Redis 或大模型之前，先创建一个最小可运行的后端。
 
-## Request lifecycle
+## 请求生命周期
 
-1. Tomcat receives `GET /api/v1/system/ping`.
-2. Spring MVC maps the request to `SystemController.ping()`.
-3. Jackson serializes the returned `ApiResponse`.
-4. The client receives JSON.
+1. Tomcat 接收 `GET /api/v1/system/ping`。
+2. Spring MVC 将请求映射到 `SystemController.ping()`。
+3. Jackson 将返回的 `ApiResponse` 序列化。
+4. 客户端收到 JSON。
 
-## Concepts
+## 核心概念
 
 ### `@SpringBootApplication`
 
-Combines component scanning, auto-configuration, and configuration support.
+组合组件扫描、自动配置和配置支持。
 
 ### `@RestController`
 
-Registers a class as a web component and writes returned objects directly to the HTTP response.
+将类注册为 Web 组件，并把返回对象直接写入 HTTP 响应。
 
 ### Record
 
-An immutable data carrier. It is useful for API responses and request DTOs.
+不可变的数据载体，适合用于 API 响应和请求 DTO。
 
 ### Actuator
 
-Provides production-oriented endpoints such as `/actuator/health` and `/actuator/metrics`.
+提供面向生产环境的接口，例如 `/actuator/health` 和 `/actuator/metrics`。

@@ -1,8 +1,8 @@
-# 10 - Async Document Processing
+# 10 - 异步文档处理
 
-## Goal
+## 目标
 
-Return from upload quickly and process chunks and embeddings on a background worker.
+上传接口快速返回，并由后台工作线程处理文本分块和向量化。
 
 ```text
 upload request
@@ -17,7 +17,7 @@ upload request
   -> on failure mark FAILED and save error_message
 ```
 
-## Thread pool
+## 线程池
 
 `KnowledgeExecutorConfig` defines:
 
@@ -28,9 +28,9 @@ queue capacity: 50
 thread prefix: smartdesk-knowledge-
 ```
 
-Embedding and parsing work must not hold the HTTP request thread or a database transaction while an external embedding API is called.
+调用外部 Embedding API 时，解析和向量化任务不能长期占用 HTTP 请求线程或数据库事务。
 
-## Transaction boundaries
+## 事务边界
 
 `KnowledgeAsyncProcessor` uses `TransactionTemplate` in two phases:
 
@@ -39,9 +39,9 @@ Embedding and parsing work must not hold the HTTP request thread or a database t
 3. Finish transaction: insert chunks and mark READY.
 4. Failure transaction: mark FAILED and save error_message.
 
-This pattern prevents a slow embedding API call from holding a database connection and transaction.
+这种方式可以避免缓慢的 Embedding API 调用长期占用数据库连接和事务。
 
-## API
+## API 接口
 
 ```text
 POST /api/v1/knowledge/documents/text/async      202
@@ -50,9 +50,9 @@ POST /api/v1/knowledge/documents/{id}/retry     202
 GET  /api/v1/knowledge/documents/{id}           status polling
 ```
 
-A response may immediately be PROCESSING. Poll the document until status becomes READY or FAILED.
+接口可能立即返回 `PROCESSING`。请轮询文档状态，直到变为 `READY` 或 `FAILED`。
 
-## Error handling
+## 错误处理
 
 Failures are stored in:
 
@@ -60,4 +60,4 @@ Failures are stored in:
 knowledge_document.error_message
 ```
 
-A retry resets the document to PROCESSING, clears the previous error, and submits the document to the worker again.
+重试会将文档重置为 `PROCESSING`，清除之前的错误信息，并重新提交给后台工作线程。

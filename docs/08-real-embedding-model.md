@@ -1,8 +1,8 @@
-# 08 - Real Embedding Model
+# 08 - 真实 Embedding 模型
 
-## Goal
+## 目标
 
-Switch from the deterministic local hash embedding to an OpenAI-compatible embedding API while preserving a no-key fallback.
+在保留无 Key 降级方案的同时，从本地确定性 Hash 向量切换到 OpenAI 兼容 Embedding API。
 
 ```text
 smartdesk.embedding.enabled=false
@@ -36,18 +36,18 @@ SMARTDESK_EMBEDDING_MODEL
 SMARTDESK_EMBEDDING_DIMENSIONS
 ```
 
-The provider calls:
+模型服务调用：
 
 ```text
 POST {baseUrl}/embeddings
 Authorization: Bearer {apiKey}
 ```
 
-## Batch embedding
+## 批量向量化
 
-Document ingestion calls `embedAll(chunks)`. The real provider splits chunk lists into batches and sends multiple inputs in one request where the provider supports it.
+文档导入会调用 `embedAll(chunks)`。真实模型服务会将文本块列表拆成批次，在服务支持时通过一次请求发送多个输入。
 
-## Model version isolation
+## 模型版本隔离
 
 Migration `V5__add_embedding_model_to_knowledge_document.sql` adds:
 
@@ -62,13 +62,13 @@ hash-v1-256
 openai:text-embedding-3-small:256
 ```
 
-Retrieval only compares chunks from documents whose model id matches the currently configured model. This prevents 256-dimensional hash vectors and 1536-dimensional provider vectors from being mixed.
+检索只比较模型 ID 与当前配置一致的文档文本块，避免混用 256 维 Hash 向量和 1536 维模型服务向量。
 
-## Switching provider and reindexing
+## 切换模型服务与重建索引
 
-Existing `hash-v1-256` documents are ignored when a different embedding model is enabled. For development, re-upload or rebuild the knowledge documents after switching.
+启用其他 Embedding 模型后，已有 `hash-v1-256` 文档会被忽略。开发环境中切换模型后请重新上传或重建知识库文档。
 
-A production reindex workflow should:
+A 生产环境的重建索引流程应当：
 
 1. Mark the old index version as inactive.
 2. Build a new index in the background.

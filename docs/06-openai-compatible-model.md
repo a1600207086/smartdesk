@@ -1,8 +1,8 @@
-# 06 - OpenAI-Compatible Streaming Model
+# 06 - OpenAI 兼容流式模型
 
-## Goal
+## 目标
 
-Replace the deterministic Mock model with a real model provider without changing the Agent orchestrator.
+在不修改 Agent 编排器的情况下，用真实模型服务替换确定性的 Mock 模型。
 
 ```text
 AgentOrchestrator
@@ -63,11 +63,11 @@ $env:SMARTDESK_LLM_MODEL="gpt-4o-mini"
 $env:SMARTDESK_LLM_API_KEY="your-api-key"
 ```
 
-The API key is read from the environment and is never written into source control.
+API Key 从环境变量读取，绝不写入源代码管理。
 
-## Streaming protocol
+## 流式协议
 
-The provider sends:
+模型服务发送：
 
 ```text
 POST {baseUrl}/chat/completions
@@ -76,22 +76,22 @@ Content-Type: application/json
 Accept: text/event-stream
 ```
 
-It parses lines such as:
+程序解析如下格式的行：
 
 ```text
 data: {"choices":[{"delta":{"content":"你"}}]}
 ```
 
-and stops on:
+遇到以下内容时停止：
 
 ```text
 data: [DONE]
 ```
 
-The Agent adds `message` events to the existing SSE response.
+Agent 会将 `message` 事件加入现有的 SSE 响应。
 
-## Fallback behavior
+## 降级行为
 
-When `smartdesk.llm.enabled=false`, `MockAgentChatModel` is selected. This lets the complete Agent, RAG, and tool chain run without an API key or network access.
+当 `smartdesk.llm.enabled=false` 时选择 `MockAgentChatModel`，因此无需 API Key 或网络也能运行完整的 Agent、RAG 和工具链。
 
-When enabled, a blank API key causes startup to fail with a clear error instead of silently calling an unauthenticated endpoint.
+启用真实模型后，如果 API Key 为空，应用会以明确错误启动失败，而不是悄悄调用未认证接口。

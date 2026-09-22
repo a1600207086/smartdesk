@@ -1,12 +1,12 @@
-# 04 - Conversation and Message Memory
+# 04 - 会话与消息记忆
 
-## Goal
+## 目标
 
-Persist conversations and messages, enforce tenant/user ownership, paginate messages, and cache recent context in Redis.
+持久化会话和消息，校验租户及用户所有权，实现消息分页，并在 Redis 中缓存近期上下文。
 
-## Data ownership
+## 数据归属
 
-Every request gets identity from the JWT principal:
+每个请求都从 JWT 主体中获取身份信息：
 
 ```text
 tenantId
@@ -14,11 +14,11 @@ userId
 role
 ```
 
-The client does not provide `tenantId` or `userId`. `ConversationService.requireOwnedConversation()` checks both values before returning or modifying a conversation.
+客户端不提供 `tenantId` 或 `userId`。`ConversationService.requireOwnedConversation()` 会在读取或修改会话前校验这两个值。
 
-## Message pagination
+## 消息分页
 
-Messages are queried newest-first for efficient pagination:
+消息按最新优先查询，以便高效分页：
 
 ```sql
 WHERE conversation_id = ?
@@ -27,9 +27,9 @@ ORDER BY id DESC
 LIMIT ?
 ```
 
-The service requests `limit + 1` rows. The extra row indicates whether older messages exist. The selected rows are then reversed before returning, so clients receive chronological order.
+服务会请求 `limit + 1` 行，多出来的一行用于判断是否还有更早消息。返回前再将选中的记录反转，使客户端按时间正序接收。
 
-## Redis recent memory
+## Redis 近期记忆
 
 Key:
 
@@ -43,7 +43,7 @@ Value:
 JSON-serialized MessageResponse entries
 ```
 
-On append:
+追加消息时：
 
 ```text
 RPUSH
@@ -51,14 +51,14 @@ LTRIM -recentMemorySize -1
 EXPIRE
 ```
 
-The first page reads Redis before MySQL. Pagination with `beforeId` always reads MySQL because older history is not guaranteed to be in Redis.
+第一页会优先读取 Redis。带 `beforeId` 的分页始终读取 MySQL，因为 Redis 不保证保存更早的历史消息。
 
-Redis failure is fail-open: the request falls back to MySQL and logs a warning.
+Redis 故障时采用降级放行：请求回退到 MySQL，并记录警告日志。
 
-## Context trimming
+## 上下文裁剪
 
-The future Agent uses `ConversationContextService`.
+Agent 使用 `ConversationContextService` 获取上下文。
 
-It loads recent messages and walks backward from the newest message until the character budget is full. It always keeps at least one message, even if that message alone exceeds the budget.
+它加载近期消息，从最新消息开始向前遍历，直到达到字符预算。即使单条消息超过预算，也至少保留一条消息。
 
-This is a simple first version. Later it can be replaced with model-specific token counting.
+这是第一版的简单实现，后续可以替换为针对具体模型的 Token 计数方式。
