@@ -1,0 +1,57 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: smartdesk-mysql
+    environment:
+      MYSQL_DATABASE: smartdesk
+      MYSQL_USER: smartdesk_app
+      MYSQL_PASSWORD: ${SMARTDESK_DB_PASSWORD:-smartdesk-dev-password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-smartdesk-root-password}
+    ports:
+      # The host already uses 3306; the container still listens on 3306.
+      - "3307:3306"
+    volumes:
+      - smartdesk-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: smartdesk-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - smartdesk-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smartdesk-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SMARTDESK_DB_URL: jdbc:mysql://mysql:3306/smartdesk?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+      SMARTDESK_DB_USERNAME: smartdesk_app
+      SMARTDESK_DB_PASSWORD: ${SMARTDESK_DB_PASSWORD:-smartdesk-dev-password}
+      SMARTDESK_REDIS_HOST: redis
+      SMARTDESK_REDIS_PORT: 6379
+      SMARTDESK_LLM_ENABLED: "false"
+      SMARTDESK_JWT_SECRET: ${SMARTDESK_JWT_SECRET:-smartdesk-docker-development-secret-key-2026}
+    ports:
+      - "8080:8080"
+
+volumes:
+  smartdesk-mysql-data:
+  smartdesk-redis-data:

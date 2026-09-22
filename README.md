@@ -25,6 +25,32 @@ SmartDesk is an intelligent after-sales and knowledge-base agent platform built 
 .\mvnw.cmd test
 ```
 
+## Run with Docker Compose
+
+Docker Compose starts MySQL, Redis, and the SmartDesk application. The application
+uses the Mock Agent by default, so no LLM or Embedding API key is required.
+
+```powershell
+docker compose up --build
+```
+
+After startup, open:
+
+```text
+http://localhost:8080/
+http://localhost:8080/swagger-ui.html
+```
+
+To stop the services while keeping database data:
+
+```powershell
+docker compose down
+```
+
+The default Compose passwords are for local development only. Set
+`SMARTDESK_DB_PASSWORD`, `MYSQL_ROOT_PASSWORD`, and `SMARTDESK_JWT_SECRET`
+before starting the stack when using a shared or deployed environment.
+
 ## Start Redis
 
 The Windows Redis service is installed as `Redis`:
