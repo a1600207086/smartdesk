@@ -1,24 +1,8 @@
-# SmartDesk
+# SmartDesk 智能售后 Agent 平台
 
-SmartDesk is an intelligent after-sales and knowledge-base agent platform built with Java and Spring Boot.
+SmartDesk 是一个面向电商售后场景的智能体应用平台，基于 Java 和 Spring Boot 开发，支持 Agent 路由、工具调用、RAG 知识库问答、SSE 流式对话、人工工单和运行监控。
 
-## Current milestone
-
-- Java 21 and Spring Boot 3.3.6
-- MySQL, Flyway, and MyBatis
-- Tenant API
-- Spring Security and BCrypt
-- JWT registration, login, logout, and profile API
-- Redis failed-login rate limiting and token blacklist
-- Conversation history, Redis recent memory, and SSE Agent chat
-- Order-query and knowledge-search Agent tools
-- Async TXT, Markdown, PDF, and DOCX knowledge ingestion
-- RAG retrieval with persisted answer citations
-- Per-message answer feedback and tenant-level quality metrics
-- Agent run traces, tool-call audit details, and tenant-level execution metrics
-- Agent-triggered human handoff tickets with an auditable status workflow
-- H2 integration tests
-
+项目主要用于展示 Java 后端、智能体开发、RAG 和系统工程化能力。
 ## Run tests
 
 ```powershell
